@@ -70,15 +70,15 @@ Training deep learning models is expensive and time-consuming. Developers need t
 
 ## 👥 Team Structure
 
-This project is divided into **5 specialized roles** with clear interfaces:
+This project is divided into **5 specialized teams** with clear interfaces. Note that students have overlapping responsibilities to ensure knowledge transfer.
 
-| Student | Role | Technologies | Complexity |
-|---------|------|--------------|------------|
-| **Student 1** | eBPF & Python Stack Unwinding | C, eBPF, CPython internals | ⚠️ HIGH |
-| **Student 2** | CUDA Profiling & Instrumentation | C/C++, CUDA, CUPTI, NVML | ⚠️ HIGH |
-| **Student 3** | Testing, Benchmarks & Integration | Python, PyTorch, ML | 🟨 MEDIUM-HIGH |
-| **Student 4** | Backend & Data Pipeline | Python, PostgreSQL, APIs | 🟨 MEDIUM-HIGH |
-| **Student 5** | Visualization & UI | JavaScript, React, D3.js | 🟨 MEDIUM-HIGH |
+| Team | Students | Role | Technologies | Complexity |
+|------|----------|------|--------------|------------|
+| **T1** | **Fouad, Maria** | eBPF & Python Stack Unwinding | C, eBPF, CPython internals | ⚠️ HIGH |
+| **T2** | **Maria, Fouad** | CUDA Profiling & Instrumentation | C/C++, CUDA, CUPTI, NVML | ⚠️ HIGH |
+| **T3** | **Olga, Khalil** | Testing, Benchmarks & Integration | Python, PyTorch, ML | 🟨 MEDIUM-HIGH |
+| **T4** | **Khalil, Siwar** | Backend & Data Pipeline | Python, PostgreSQL, APIs | 🟨 MEDIUM-HIGH |
+| **T5** | **Siwar, Olga** | Visualization & UI | JavaScript, React, D3.js | 🟨 MEDIUM-HIGH |
 
 **Collaboration is essential!** Weekly integration meetings ensure all components work together seamlessly.
 
@@ -154,24 +154,24 @@ python examples/profile_resnet.py
 
 ```
 grof/
-├── ebpf-profiler/          # eBPF-based CPU profiler (Student 1)
+├── ebpf-profiler/          # eBPF-based CPU profiler (T1)
 │   ├── src/
 │   ├── include/
 │   └── Makefile
-├── cuda-profiler/          # CUDA injection library (Student 2)
+├── cuda-profiler/          # CUDA injection library (T2)
 │   ├── src/
 │   ├── include/
 │   └── Makefile
-├── correlation/            # CPU-GPU correlation engine (Student 3)
+├── correlation/            # CPU-GPU correlation engine (T3)
 │   └── correlator.py
-├── benchmarks/             # Test suite and benchmarks (Student 3)
+├── benchmarks/             # Test suite and benchmarks (T3)
 │   ├── pytorch_models/
 │   └── run_benchmarks.py
-├── backend/                # Backend API and storage (Student 4)
+├── backend/                # Backend API and storage (T4)
 │   ├── app.py
 │   ├── models/
 │   └── api/
-├── frontend/               # Web UI and visualizations (Student 5)
+├── frontend/               # Web UI and visualizations (T5)
 │   ├── src/
 │   ├── components/
 │   └── public/
@@ -248,44 +248,41 @@ By the end of this project, you will have mastered:
 
 ---
 
-## 🔧 Week 1 Action Items
+## 📅 Milestone 1: Foundation & Prototyping (Weeks 1-4)
 
-### Everyone (Required)
-- [ ] Set up Linux + NVIDIA GPU environment
-- [ ] Install CUDA Toolkit and verify with `nvidia-smi`
-- [ ] Join GitHub repository and Slack/Discord
-- [ ] Read project plan and architecture documents
-- [ ] Explore [zymtrace.com](http://zymtrace.com) (our inspiration)
+**Goal:** Establish the development environment, understand core technologies, and build independent "Hello World" prototypes for each component.
 
-### Student 1 (eBPF Lead) 
-- [ ] Complete [BCC Python tutorial](https://github.com/iovisor/bcc/blob/master/docs/tutorial_bcc_python_developer.md)
-- [ ] Study [OpenTelemetry eBPF profiler](https://github.com/open-telemetry/opentelemetry-ebpf-profiler) source
-- [ ] Build simple eBPF stack sampler
-- [ ] Document CPython interpreter structure
+### 🟢 T1: eBPF & Stack Unwinding (Fouad, Maria)
+**Objective:** Build a standalone eBPF script that can read Python stack frames.
+- [ ] **Research:** Deep dive into CPython interpreter internals (specifically `PyEval_EvalFrameDefault`) and BCC/libbpf.
+- [ ] **Environment:** Set up a Linux environment with BCC tools installed.
+- [ ] **Development:** Write a basic eBPF program (C + Python wrapper) that attaches to a running Python process.
+- [ ] **Deliverable:** A script `simple_profiler.py` that prints the name of the currently executing Python function 100 times per second.
 
-### Student 2 (CUDA Lead) 
-- [ ] Deep dive into [CUPTI documentation](https://docs.nvidia.com/cuda/cupti/)
-- [ ] Test CUDA injection with simple example
-- [ ] Build basic CUPTI callback program
-- [ ] Study SASS disassembly with `cuobjdump`
+### 🔵 T2: CUDA Instrumentation (Maria, Fouad)
+**Objective:** Intercept CUDA calls to detect when kernels are launched.
+- [ ] **Research:** Study the CUPTI Activity API and Callback API documentation.
+- [ ] **Environment:** Verify CUDA Toolkit 12.0+ installation and build sample CUPTI samples.
+- [ ] **Development:** Create a dynamic library (`.so`) using CUPTI that subscribes to kernel launch callbacks.
+- [ ] **Deliverable:** A shared library that, when loaded with `LD_PRELOAD` running a PyTorch script, prints the name of every GPU kernel launched to stdout.
 
-### Student 3 (Testing Lead)
-- [ ] Profile 3 models with PyTorch profiler + nsys
-- [ ] Compare overhead and metrics
-- [ ] Implement benchmark models (ResNet, BERT, simple CNN)
-- [ ] Document findings
+### 🟠 T3: Testing & Benchmarks (Olga, Khalil)
+**Objective:** Establish baseline performance metrics for comparison.
+- [ ] **Research:** Analyze the overhead and output format of `nsys` (Nsight Systems) and `torch.profiler`.
+- [ ] **Development:** Set up the `benchmarks/` directory with 3 standard models: ResNet50 (Computer Vision), BERT (NLP), and a simple custom CNN.
+- [ ] **Deliverable:** A "Baseline Performance Report" (PDF/MD) documenting the execution time and GPU utilization of these models *without* GROF, to serve as the ground truth.
 
-### Student 4 (Backend Lead)
-- [ ] Research flamegraph algorithms
-- [ ] Design PostgreSQL database schema
-- [ ] Set up Flask/FastAPI project skeleton
-- [ ] Create API endpoint mockups
+### 🟣 T4: Backend & Data (Khalil, Siwar)
+**Objective:** Design the data structure for storing profiling traces.
+- [ ] **Research:** Define a JSON schema that can represent both a CPU stack trace (from T1) and a GPU kernel event (from T2).
+- [ ] **Development:** Set up a PostgreSQL database and a basic FastAPI/Flask application skeleton.
+- [ ] **Deliverable:** A running API with an `/ingest` endpoint that accepts dummy JSON trace data and stores it in the database.
 
-### Student 5 (Frontend Lead)
-- [ ] Study [D3.js flamegraph examples](https://github.com/brendangregg/FlameGraph)
-- [ ] Create UI mockups (Figma or paper)
-- [ ] Set up React project
-- [ ] Prototype basic flamegraph component
+### 🟡 T5: Visualization (Siwar, Olga)
+**Objective:** Create the visual shell for the profiler.
+- [ ] **Research:** Investigate D3.js flamegraph libraries and React integration patterns.
+- [ ] **Development:** Initialize the React frontend project and create the basic layout (sidebar, header, main view).
+- [ ] **Deliverable:** A web page displaying a **static** flamegraph rendered from a hardcoded JSON file (matching the schema defined by T4).
 
 ---
 
