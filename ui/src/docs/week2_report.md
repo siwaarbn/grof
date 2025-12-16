@@ -6,7 +6,7 @@ This week I implemented the **interactive Flamegraph component** for the GROF pr
 
 ---
 
-## Week 2 Requirements (Completed)
+## Week 2 
 
 ### 1. **Flamegraph Library Integration**
 - Integrated **`d3-flame-graph`** library with React
