@@ -2,9 +2,9 @@ import React from "react";
 
 const FlamegraphLegend = () => {
     const legendItems = [
-        { color:  "#e74c3c", label: "Python (warm)" },
-        { color: "#3498db", label: "C++/System (cool)" },
-        { color: "#9b59b6", label: "CUDA (GPU)" },
+        { color:  "#e74c3c", label: "Python" },
+        { color: "#3498db", label: "C++/System" },
+        { color: "#9b59b6", label: "CUDA" },
         { color: "#95a5a6", label:  "Other" },
     ];
 

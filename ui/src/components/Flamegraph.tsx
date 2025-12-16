@@ -6,33 +6,38 @@ import * as d3 from "d3";
 
 interface FlamegraphProps {
     data: any;
-    width?:  number;
+    width?: number;
     height?: number;
 }
 
 const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
+    const containerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<HTMLDivElement>(null);
     const tooltipRef = useRef<any>(null);
     const chartInstanceRef = useRef<any>(null);
     const [searchTerm, setSearchTerm] = useState("");
-    const [chartWidth, setChartWidth] = useState(width || 1200);
+    const [chartWidth, setChartWidth] = useState(0);
 
     useEffect(() => {
-        const handleResize = () => {
-            if (chartRef.current) {
-                const containerWidth = chartRef.current.parentElement?.clientWidth || 1200;
-                setChartWidth(containerWidth - 20); // Минус padding
+        const updateWidth = () => {
+            if (containerRef.current) {
+                const width = containerRef.current.offsetWidth;
+                setChartWidth(width > 0 ? width : 1200);
             }
         };
 
-        handleResize();
-        window.addEventListener("resize", handleResize);
+        const timer = setTimeout(updateWidth, 50);
 
-        return () => window.removeEventListener("resize", handleResize);
+        window.addEventListener("resize", updateWidth);
+
+        return () => {
+            clearTimeout(timer);
+            window. removeEventListener("resize", updateWidth);
+        };
     }, []);
 
     useEffect(() => {
-        if (!chartRef.current || !data) return;
+        if (! chartRef.current || !data || chartWidth === 0) return;
 
         d3.select(chartRef.current).selectAll("*").remove();
 
@@ -46,20 +51,18 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
             .sort(true)
             .title("")
             .inverted(false)
-            .color((d: any) => {
-                const name = d?.data?.name || "";
-                // WARM colors for Python (interpreted/high-level)
-                if (name.includes("[Python]")) return "#e74c3c"; // Red/Warm
-                // COOL colors for C++/System (compiled/low-level)
-                if (name.includes("[C++]")) return "#3498db";    // Blue/Cool
-                if (name.includes("[CUDA]")) return "#9b59b6";   // Purple (GPU)
-                return "#95a5a6";  // Gray (Other)
+            .color((d:  any) => {
+                const name = d?. data?.name || "";
+                if (name.includes("[Python]")) return "#e74c3c";
+                if (name.includes("[C++]")) return "#3498db";
+                if (name.includes("[CUDA]")) return "#9b59b6";
+                return "#95a5a6";
             });
 
         chartInstanceRef.current = chart;
 
         const chartContainer = d3.select(chartRef.current);
-        chartContainer.datum(data).call(chart as any);
+        chartContainer. datum(data).call(chart as any);
 
         if (! tooltipRef.current) {
             tooltipRef.current = d3
@@ -91,13 +94,13 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
                         .html(
                             `<strong>${rectData.data.name}</strong><br/>Time: ${rectData.data.value}ms`
                         )
-                        .style("visibility", "visible");
+                        . style("visibility", "visible");
                 }
             })
             .on("mousemove", function (event: any) {
                 tooltip
                     .style("top", event.pageY - 10 + "px")
-                    .style("left", event. pageX + 10 + "px");
+                    .style("left", event.pageX + 10 + "px");
             })
             .on("mouseout", function () {
                 tooltip.style("visibility", "hidden");
@@ -109,7 +112,7 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
                 tooltipRef.current = null;
             }
         };
-    }, [data, width, height]);
+    }, [data, chartWidth, height]);
 
     useEffect(() => {
         if (!chartRef.current) return;
@@ -130,8 +133,7 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
 
     const handleReset = () => {
         setSearchTerm("");
-        // Используем встроенный метод resetZoom()
-        if (chartInstanceRef. current && chartInstanceRef.current.resetZoom) {
+        if (chartInstanceRef.current && chartInstanceRef.current.resetZoom) {
             chartInstanceRef.current.resetZoom();
         }
 
@@ -141,14 +143,13 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
     };
 
     return (
-        <div style={{ width: "100%" }}>
-            {/* Controls */}
+        <div ref={containerRef} style={{ width: "100%" }}>
             <div
                 style={{
                     display: "flex",
                     gap: "10px",
                     marginBottom: "15px",
-                    flexWrap:  "wrap",
+                    flexWrap: "wrap",
                     alignItems: "center",
                 }}
             >
@@ -156,7 +157,7 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
                     type="text"
                     placeholder="Search functions..."
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => setSearchTerm(e.target. value)}
                     style={{
                         padding: "8px 12px",
                         borderRadius: "4px",
@@ -165,19 +166,19 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
                         color: "#fff",
                         fontSize: "14px",
                         minWidth: "250px",
-                        flex: "1",
+                        flex: "1 1 250px",
                     }}
                 />
                 <button
                     onClick={handleReset}
                     style={{
-                        padding: "8px 16px",
-                        borderRadius:  "4px",
-                        border:  "1px solid #646cff",
+                        padding:  "8px 16px",
+                        borderRadius: "4px",
+                        border: "1px solid #646cff",
                         background: "#646cff",
-                        color: "#fff",
+                        color:  "#fff",
                         cursor: "pointer",
-                        fontSize:  "14px",
+                        fontSize: "14px",
                         fontWeight: "500",
                     }}
                 >
@@ -185,13 +186,12 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
                 </button>
             </div>
 
-            {/* Flamegraph */}
             <div
                 ref={chartRef}
                 style={{
                     background: "#1e1e1e",
                     borderRadius: "8px",
-                    padding: "10px",
+                    padding: "0",
                     cursor: "pointer",
                     overflow: "hidden",
                     width: "100%",

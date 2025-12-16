@@ -1,11 +1,13 @@
 import SessionList from "../components/SessionList";
 import CpuSampleList from "../components/CpuSampleList";
 import GpuEventList from "../components/GpuEventList";
-import TimelinePlaceholder from "../components/TimelinePlaceholder";
+//import TimelinePlaceholder from "../components/TimelinePlaceholder";
 //import FlamegraphPlaceholder from "../components/FlamegraphPlaceholder";
 import Flamegraph from "../components/Flamegraph";
 import FlamegraphLegend from "../components/FlamegraphLegend";
+import Timeline from "../components/Timeline";
 import { mockFlamegraphData } from "../data/mockFlamegraphData";
+import { mockGpuEvents } from "../data/mockGpuEvents";
 
 export default function Dashboard() {
   return (
@@ -22,13 +24,16 @@ export default function Dashboard() {
         <SessionList />
         <CpuSampleList />
         <GpuEventList />
-        <TimelinePlaceholder />
+          <section>
+              <h2 style={{ marginBottom: "15px" }}>GPU Timeline</h2>
+              <Timeline events={mockGpuEvents} height={400} />
+          </section>
+
           <section>
               <h2 style={{ marginBottom: "15px" }} >Flamegraph </h2>
               <FlamegraphLegend />
               <Flamegraph
                   data={mockFlamegraphData}
-                  width={window.innerWidth - 80}
                   height={600}
               />
           </section>
