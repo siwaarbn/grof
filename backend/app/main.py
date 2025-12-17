@@ -1,6 +1,6 @@
 from fastapi import FastAPI
+from app.routers import sessions
 
 app = FastAPI()
-@app.get("/")
-def root():
-    return {"message": "working fine!!!"}
+
+app.include_router(sessions.router)
