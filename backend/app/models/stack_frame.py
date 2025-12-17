@@ -9,5 +9,5 @@ class StackFrame(Base):
     function_name = Column(String, nullable=False)
     file_path = Column(String)
 
-    # Back reference from CpuSample
-    samples = relationship("CpuSample", back_populates="frame")
+   
+    #samples = relationship("CpuSample", back_populates="frame")

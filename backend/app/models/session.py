@@ -1,16 +1,18 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, BigInteger
+from sqlalchemy import Column, Integer, String, BigInteger
 from sqlalchemy.orm import relationship
 from app.database import Base
 
-class CpuSample(Base):
-    __tablename__ = "cpu_samples"
+
+class Session(Base):
+    __tablename__ = "sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(Integer, ForeignKey("sessions.id"))
-    timestamp = Column(BigInteger, nullable=False)  # nanoseconds
-    thread_id = Column(Integer)
-    stack_hash = Column(String, ForeignKey("stack_frames.hash"))
+    name = Column(String, nullable=True)
+    start_time = Column(BigInteger, nullable=True)
+    end_time = Column(BigInteger, nullable=True)
+    git_commit_hash = Column(String, nullable=True)
+    tags = Column(String, nullable=True)
 
-    # Relationships
-    session = relationship("Session")
-    frame = relationship("StackFrame")
+    cpu_samples = relationship("CpuSample", back_populates="session")
+    gpu_events = relationship("GpuEvent", back_populates="session")
+

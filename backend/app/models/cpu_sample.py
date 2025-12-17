@@ -9,8 +9,11 @@ class CpuSample(Base):
     session_id = Column(Integer, ForeignKey("sessions.id"))
     timestamp = Column(BigInteger, nullable=False)  # nanoseconds
     thread_id = Column(Integer)
-    stack_hash = Column(String, ForeignKey("stack_frames.hash"))
+    stack_hash = Column(String)
 
-    session = relationship("Session")
-    frame = relationship("StackFrame")
+
+    session = relationship("Session", back_populates="cpu_samples")
+
+   # //frame = relationship("StackFrame", back_populates="samples")
+
 
