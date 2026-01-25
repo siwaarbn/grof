@@ -1,11 +1,11 @@
-import React from "react";
+// FlamegraphLegend - Visual legend for flamegraph color coding
 
 const FlamegraphLegend = () => {
     const legendItems = [
-        { color:  "#e74c3c", label: "Python" },
+        { color: "#e74c3c", label: "Python" },
         { color: "#3498db", label: "C++/System" },
         { color: "#9b59b6", label: "CUDA" },
-        { color: "#95a5a6", label:  "Other" },
+        { color: "#95a5a6", label: "Other" },
     ];
 
     return (
@@ -24,7 +24,7 @@ const FlamegraphLegend = () => {
             {legendItems.map((item) => (
                 <div
                     key={item.label}
-                    style={{ display: "flex", alignItems:  "center", gap: "8px" }}
+                    style={{ display: "flex", alignItems: "center", gap: "8px" }}
                 >
                     <div
                         style={{

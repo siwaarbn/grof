@@ -17,7 +17,7 @@ const Timeline = ({ events, width, height = 400 }: TimelineProps) => {
     useEffect(() => {
         const handleResize = () => {
             if (svgRef.current) {
-                const containerWidth = svgRef.current. parentElement?.clientWidth || 1200;
+                const containerWidth = svgRef.current.parentElement?.clientWidth || 1200;
                 setChartWidth(containerWidth - 40);
             }
         };
@@ -34,11 +34,11 @@ const Timeline = ({ events, width, height = 400 }: TimelineProps) => {
         d3.select(svgRef.current).selectAll("*").remove();
 
         // Get unique streams
-        const streams = Array.from(new Set(events. map((e) => e.stream))).sort((a, b) => a - b);
+        const streams = Array.from(new Set(events.map((e) => e.stream))).sort((a, b) => a - b);
         const numStreams = streams.length;
 
         // Dimensions
-        const margin = { top:  40, right: 40, bottom:  40, left: 100 };
+        const margin = { top: 40, right: 40, bottom: 40, left: 100 };
         const innerWidth = chartWidth - margin.left - margin.right;
         const innerHeight = height - margin.top - margin.bottom;
         const rowHeight = innerHeight / numStreams;
@@ -110,13 +110,13 @@ const Timeline = ({ events, width, height = 400 }: TimelineProps) => {
                     .attr("x2", innerWidth)
                     .attr("y1", (i + 1) * rowHeight)
                     .attr("y2", (i + 1) * rowHeight)
-                    . attr("stroke", "#333")
+                    .attr("stroke", "#333")
                     .attr("stroke-width", 1);
             }
         });
 
         // Create tooltip
-        if (! tooltipRef.current) {
+        if (!tooltipRef.current) {
             tooltipRef.current = d3
                 .select("body")
                 .append("div")
@@ -153,13 +153,13 @@ const Timeline = ({ events, width, height = 400 }: TimelineProps) => {
             .attr("ry", 4)
             .attr("opacity", 0.9)
             .style("cursor", "pointer")
-            .on("mouseover", function (event:  any, d:  any) {
+            .on("mouseover", function (_event: any, d: any) {
                 d3.select(this).attr("opacity", 1).attr("stroke", "#fff").attr("stroke-width", 2);
                 tooltip
                     .html(
                         `<strong>${d.name}</strong><br/>Type: ${d.type}<br/>Stream: ${d.stream}<br/>Duration: ${d.endTime - d.startTime}ms<br/>Start: ${d.startTime}ms`
                     )
-                    . style("visibility", "visible");
+                    .style("visibility", "visible");
             })
             .on("mousemove", function (event: any) {
                 tooltip
@@ -179,7 +179,7 @@ const Timeline = ({ events, width, height = 400 }: TimelineProps) => {
             .attr("class", "event-label")
             .attr("x", (d) => xScale(d.startTime) + (xScale(d.endTime) - xScale(d.startTime)) / 2)
             .attr("y", (d) => {
-                const streamIndex = streams. indexOf(d.stream);
+                const streamIndex = streams.indexOf(d.stream);
                 return streamIndex * rowHeight + rowHeight / 2;
             })
             .attr("text-anchor", "middle")

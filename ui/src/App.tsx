@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { fetchSessions } from "./api/sessions";
 import { fetchCpuSamples } from "./api/cpuSamples";
 import type { Session } from "./types/session";
+import CorrelatedRunDetails from "./pages/CorrelatedRunDetails";
 
 function Dashboard() {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -64,6 +65,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Dashboard />} />
+        <Route path="/run/:id" element={<CorrelatedRunDetails />} />
       </Routes>
     </BrowserRouter>
   );

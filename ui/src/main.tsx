@@ -7,7 +7,7 @@ import "./index.css";
 
 import Navbar from "./components/Navbar";
 import Dashboard from "./pages/Dashboard";
-import RunDetails from "./pages/RunDetails";
+import CorrelatedRunDetails from "./pages/CorrelatedRunDetails";
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -15,7 +15,7 @@ createRoot(document.getElementById("root")!).render(
       <Navbar />
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/run/:id" element={<RunDetails />} />
+        <Route path="/run/:id" element={<CorrelatedRunDetails />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
