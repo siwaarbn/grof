@@ -33,3 +33,6 @@ __pycache__/
 
 # Benchmark results (optional - remove if you want to track them)
 # benchmarks/results/*. json
+# Virtual environments
+.venv/
+venv/
