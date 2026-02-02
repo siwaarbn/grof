@@ -1,15 +1,18 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
-import os
 from typing import Generator
 from sqlalchemy.orm import Session
-#temporary change
 import os
-print(">>> DATABASE_URL =", os.getenv("DATABASE_URL"))
+import sys
 
-DATABASE_URL = os.environ["DATABASE_URL"]
-# ↑ force Docker to provide it — fail fast if missing
+# HARDCODE THE CORRECT URL - This will override any environment variable
+DATABASE_URL = "postgresql+psycopg2://admin:admin@db:5432/grof"
 
+# Print to stderr so we can see it in Docker logs
+print(f"=== USING CORRECT DATABASE_URL ===", file=sys.stderr)
+print(f"{DATABASE_URL}", file=sys.stderr)
+
+# Create engine with the hardcoded correct URL
 engine = create_engine(DATABASE_URL)
 
 SessionLocal = sessionmaker(
@@ -20,10 +23,12 @@ SessionLocal = sessionmaker(
 
 Base = declarative_base()
 
-
 def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
+
+
+from app.models import *
