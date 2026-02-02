@@ -1,34 +1,33 @@
-version: "3.9"
 services:
   db:
-    container_name: grof-db
     image: postgres:14
-    restart: always
+    container_name: grof-db
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: admin
-      POSTGRES_DB: database
+      POSTGRES_DB: grof
     ports:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
 
   api:
-    build: ./backend
+    build:
+      context: ./backend
     container_name: grof-api
     depends_on:
       - db
     environment:
-      DATABASE_URL: postgres://admin:admin@db:5432/grof
-      PORT: "8000"
+      DATABASE_URL: postgresql+psycopg2://admin:admin@db:5432/grof
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
 
   pgadmin:
-    container_name: grof-pgadmin
     image: dpage/pgadmin4
+    container_name: grof-pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@example.com
       PGADMIN_DEFAULT_PASSWORD: admin
