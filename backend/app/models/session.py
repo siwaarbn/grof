@@ -8,10 +8,13 @@ class Session(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
-    date = Column(DateTime, nullable=False)
-    duration = Column(Integer, nullable=False)
-    status = Column(String, nullable=False)
 
+    start_time= Column(DateTime,nullable=False)
+    end_time= Column(DateTime,nullable=False)
+
+    git_commit_hash= Column (String , nullable=True)
+
+    tags= Column(String , nullable=True)
     # CPU samples (already fixed)
     cpu_samples = relationship(
         "CpuSample",

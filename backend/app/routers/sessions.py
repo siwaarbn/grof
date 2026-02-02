@@ -6,6 +6,8 @@ from app.database import get_db
 from app.models.session import Session as ProfilingSession
 from app.models.cpu_sample import CpuSample
 from app.schemas.cpu_sample import CpuSampleBatch
+from app.services.session_services  import start_session, stop_session
+
 
 # ✅ Router FIRST
 router = APIRouter(prefix="/sessions", tags=["Sessions"])
@@ -106,5 +108,18 @@ def get_flamegraph(
         }
 
     return normalize(root)
+
+@router.post("/start")
+def start(db: Session = Depends(get_db)):
+    session = start_session(db)
+    return {"session_id": session.id}
+
+
+@router.post("/stop/{session_id}")
+def stop(session_id: int, db: Session = Depends(get_db)):
+    session = stop_session(db, session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"status": "stopped"}
 
 
