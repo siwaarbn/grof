@@ -6,10 +6,12 @@ class GpuEvent(Base):
     __tablename__ = "gpu_events"
 
     id = Column(Integer, primary_key=True)
-    session_id = Column(Integer, ForeignKey("sessions.id"))
-    name = Column(String)
-    start_time = Column(BigInteger)
-    end_time = Column(BigInteger)
-    stream_id = Column(Integer)
+    session_id = Column(Integer, ForeignKey("sessions.id"), nullable=False)
 
-    session = relationship("Session", back_populates="gpu_events")
+    correlation_id = Column(BigInteger, nullable=True)  
+
+    name = Column(String, nullable=False)
+    start_time = Column(BigInteger, nullable=False)
+    end_time = Column(BigInteger, nullable=False)
+    stream_id = Column(Integer, nullable=True)
+
