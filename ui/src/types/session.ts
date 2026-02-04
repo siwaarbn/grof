@@ -4,12 +4,11 @@
  */
 
 export interface Session {
-    id: number;
-    name: string;
-    date?: string;
-    start_time?: string;
-    duration?: number;
-    status?: "completed" | "running" | "failed";
-    gpuUsage?: number;
-    cpuUsage?: number;
+  id: string;
+  name: string;
+  date: string;
+  duration: number;
+  cpuUsage: number;
+  gpuUsage: number;
+  status: "completed" | "running" | "failed";
 }
