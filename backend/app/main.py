@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.routers.sessions import router as sessions_router
 from app.routers.cpu_correlation import router as cpu_correlation_router
@@ -10,6 +11,18 @@ from app.routers.critical_path import router as critical_path_router
 
 
 app = FastAPI()
+
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 app.include_router(sessions_router)
 app.include_router(cpu_correlation_router)
