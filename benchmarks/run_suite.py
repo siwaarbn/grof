@@ -1,26 +1,36 @@
 """
+GROF Benchmark Suite Runner
+
+M1 T3: Basic automation and benchmark execution
+M2 T3: Extended with --mode, --iterations, --warmup for overhead analysis
+
 Usage:
-    python run_suite.py                          # Run all benchmarks
-    python run_suite.py --benchmarks micro_gemm bert   # Run specific benchmarks
-    python run_suite.py --output results/my.json # Custom output file
+    python run_suite.py                                    # Run all (baseline)
+    python run_suite.py --mode=baseline --iterations=30    # M2 T3 overhead test
+    python run_suite.py --mode=grof -b resnet50 -n 30      # With GROF profiler
+    python run_suite.py --mode=nsys --benchmarks micro_gemm # With Nsight Systems
 """
 
 import argparse
 import json
 import os
 import sys
+import subprocess
+import time
+import signal
 from datetime import datetime
 from typing import Dict, List, Any, Optional
+from pathlib import Path
 
 # Add current directory to path for imports
-sys.path.insert(0, os.path.dirname(os.path. abspath(__file__)))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from environment import get_environment
 from config import BENCHMARK_CONFIG, RESULTS_DIR
 
-# Import benchmark functions from your existing files
+# Import benchmark functions
 from micro_benchmarks.micro_gemm import benchmark_gemm
-from micro_benchmarks. micro_memcpy import (
+from micro_benchmarks.micro_memcpy import (
     benchmark_host_to_device,
     benchmark_device_to_host,
     benchmark_device_to_device,
@@ -33,6 +43,103 @@ from micro_benchmarks.micro_launch import (
 from macro_benchmarks.resnet50 import benchmark_resnet
 from macro_benchmarks.bert import benchmark_bert
 
+# =============================================================================
+# M2 T3: PROFILER INTEGRATION
+# =============================================================================
+
+# Paths to T1 and T2 components
+PROJECT_ROOT = Path(__file__).parent.parent
+EBPF_SCRIPT = PROJECT_ROOT / "M1" / "T1" / "week2" / "stackwalk.py"
+CUPTI_LIB = PROJECT_ROOT / "libgrof_cuda.so"
+
+
+class ProfilerContext:
+    """Context manager for running with different profilers."""
+    
+    def __init__(self, mode: str):
+        self.mode = mode
+        self.ebpf_proc = None
+        self.original_env = os.environ.copy()
+    
+    def __enter__(self):
+        if self.mode == "baseline":
+            print("[Mode: BASELINE] No profiler attached")
+            return self
+        
+        elif self.mode == "grof":
+            # Enable CUPTI via LD_PRELOAD
+            if CUPTI_LIB.exists():
+                os.environ["LD_PRELOAD"] = str(CUPTI_LIB)
+                print(f"[Mode: GROF] CUPTI enabled via LD_PRELOAD")
+            else:
+                print(f"[Mode: GROF] WARNING: {CUPTI_LIB} not found, CUPTI disabled")
+            
+            # Start eBPF profiler (requires Linux + root)
+            if EBPF_SCRIPT.exists() and sys.platform == "linux":
+                try:
+                    self.ebpf_proc = subprocess.Popen(
+                        ["sudo", "python3", str(EBPF_SCRIPT)],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                    )
+                    print(f"[Mode: GROF] eBPF profiler started (PID: {self.ebpf_proc.pid})")
+                except Exception as e:
+                    print(f"[Mode: GROF] WARNING: eBPF failed: {e}")
+            else:
+                print(f"[Mode: GROF] WARNING: eBPF not available (requires Linux)")
+            
+            return self
+        
+        elif self.mode == "nsys":
+            print("[Mode: NSYS] Running under Nsight Systems")
+            # Note: nsys wrapping is handled externally
+            return self
+        
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Cleanup
+        if self.ebpf_proc:
+            self.ebpf_proc.send_signal(signal.SIGINT)
+            self.ebpf_proc.wait(timeout=5)
+            print("[Mode: GROF] eBPF profiler stopped")
+        
+        # Restore environment
+        os.environ.clear()
+        os.environ.update(self.original_env)
+        return False
+
+
+# =============================================================================
+# M2 T3: STATISTICS (from stats.py, inlined)
+# =============================================================================
+
+def calculate_stats(data: List[float]) -> Dict[str, Any]:
+    """Calculate mean, std, and 95% confidence interval."""
+    import numpy as np
+    from scipy import stats as scipy_stats
+    
+    arr = np.array(data)
+    n = len(arr)
+    
+    if n < 2:
+        return {"n": n, "mean": float(arr[0]) if n else 0, "std": 0, 
+                "ci95_lower": 0, "ci95_upper": 0}
+    
+    mean = float(np.mean(arr))
+    std = float(np.std(arr, ddof=1))
+    sem = scipy_stats.sem(arr)
+    ci95 = sem * scipy_stats.t.ppf(0.975, n - 1)
+    
+    return {
+        "n": n, "mean": mean, "std": std,
+        "ci95_lower": mean - ci95, "ci95_upper": mean + ci95,
+    }
+
+
+# =============================================================================
+# BENCHMARK RUNNERS
+# =============================================================================
 
 def run_gemm_benchmarks(config: Dict) -> List[Dict]:
     """Run GEMM benchmarks for all configured sizes."""
@@ -42,16 +149,16 @@ def run_gemm_benchmarks(config: Dict) -> List[Dict]:
     print("=" * 60)
 
     for size in config["sizes"]:
-        print(f"  Matrix size: {size}x{size}.. .", end=" ", flush=True)
+        print(f"  Matrix size: {size}x{size}...", end=" ", flush=True)
         measurement, tflops = benchmark_gemm(size, config["min_run_time"])
 
         result = {
-            "benchmark":  "gemm",
+            "benchmark": "gemm",
             "params": {"size": size},
-            "median_ms": measurement. median * 1000,
+            "median_ms": measurement.median * 1000,
             "iqr_ms": measurement.iqr * 1000,
             "tflops": tflops,
-            "num_runs": len(measurement. times),
+            "num_runs": len(measurement.times),
         }
         results.append(result)
         print(f"{measurement.median * 1000:.2f} ms, {tflops:.2f} TFLOPS")
@@ -68,16 +175,16 @@ def run_memory_benchmarks(config: Dict) -> List[Dict]:
 
     for num_elements in config["num_elements"]:
         size_mb = (num_elements * 4) / 1e6
-        print(f"\n  Size: {num_elements: ,} elements ({size_mb:.1f} MB)")
+        print(f"\n  Size: {num_elements:,} elements ({size_mb:.1f} MB)")
 
         # Host to Device
-        print(f"    Host→Device.. .", end=" ", flush=True)
+        print(f"    Host→Device...", end=" ", flush=True)
         m, bw = benchmark_host_to_device(num_elements, config["min_run_time"])
         results.append({
-            "benchmark":  "memory_copy",
-            "params":  {"direction": "host_to_device", "num_elements": num_elements},
+            "benchmark": "memory_copy",
+            "params": {"direction": "host_to_device", "num_elements": num_elements},
             "median_ms": m.median * 1000,
-            "iqr_ms":  m.iqr * 1000,
+            "iqr_ms": m.iqr * 1000,
             "bandwidth_gbs": bw,
             "num_runs": len(m.times),
         })
@@ -88,16 +195,16 @@ def run_memory_benchmarks(config: Dict) -> List[Dict]:
         m, bw = benchmark_device_to_host(num_elements, config["min_run_time"])
         results.append({
             "benchmark": "memory_copy",
-            "params": {"direction":  "device_to_host", "num_elements": num_elements},
-            "median_ms": m. median * 1000,
-            "iqr_ms":  m.iqr * 1000,
+            "params": {"direction": "device_to_host", "num_elements": num_elements},
+            "median_ms": m.median * 1000,
+            "iqr_ms": m.iqr * 1000,
             "bandwidth_gbs": bw,
             "num_runs": len(m.times),
         })
         print(f"{bw:.2f} GB/s")
 
         # Device to Device
-        print(f"    Device→Device.. .", end=" ", flush=True)
+        print(f"    Device→Device...", end=" ", flush=True)
         m, bw = benchmark_device_to_device(num_elements, config["min_run_time"])
         results.append({
             "benchmark": "memory_copy",
@@ -119,14 +226,14 @@ def run_kernel_launch_benchmarks(config: Dict) -> List[Dict]:
     print("Running Kernel Launch Benchmarks")
     print("=" * 60)
 
-    # Empty kernel (synchronize only)
-    print("  Empty sync.. .", end=" ", flush=True)
+    # Empty kernel
+    print("  Empty sync...", end=" ", flush=True)
     m, overhead = benchmark_empty_kernel(config["min_run_time"])
     results.append({
         "benchmark": "kernel_launch",
         "params": {"type": "empty_sync"},
         "median_us": overhead,
-        "iqr_us":  m.iqr * 1e6,
+        "iqr_us": m.iqr * 1e6,
         "num_runs": len(m.times),
     })
     print(f"{overhead:.2f} µs")
@@ -137,9 +244,9 @@ def run_kernel_launch_benchmarks(config: Dict) -> List[Dict]:
         m, overhead = benchmark_small_kernel(size, config["min_run_time"])
         results.append({
             "benchmark": "kernel_launch",
-            "params": {"type": "small_kernel", "size":  size},
+            "params": {"type": "small_kernel", "size": size},
             "median_us": overhead,
-            "iqr_us":  m.iqr * 1e6,
+            "iqr_us": m.iqr * 1e6,
             "num_runs": len(m.times),
         })
         print(f"{overhead:.2f} µs")
@@ -149,11 +256,11 @@ def run_kernel_launch_benchmarks(config: Dict) -> List[Dict]:
         print(f"  Sequential ({n} kernels)...", end=" ", flush=True)
         m, overhead_per = benchmark_many_small_kernels(n, config["min_run_time"])
         results.append({
-            "benchmark":  "kernel_launch",
-            "params":  {"type": "sequential", "num_kernels": n},
+            "benchmark": "kernel_launch",
+            "params": {"type": "sequential", "num_kernels": n},
             "median_us_per_kernel": overhead_per,
             "total_median_ms": m.median * 1000,
-            "num_runs": len(m. times),
+            "num_runs": len(m.times),
         })
         print(f"{overhead_per:.2f} µs/kernel")
 
@@ -168,7 +275,7 @@ def run_resnet_benchmarks(config: Dict) -> List[Dict]:
     print("=" * 60)
 
     for batch_size in config["batch_sizes"]:
-        print(f"  Batch size:  {batch_size}...", end=" ", flush=True)
+        print(f"  Batch size: {batch_size}...", end=" ", flush=True)
         m, throughput = benchmark_resnet(batch_size, config["min_run_time"])
 
         results.append({
@@ -194,16 +301,16 @@ def run_bert_benchmarks(config: Dict) -> List[Dict]:
     seq_length = config["seq_length"]
 
     for batch_size in config["batch_sizes"]:
-        print(f"  Batch size:  {batch_size}, seq_len: {seq_length}...", end=" ", flush=True)
+        print(f"  Batch size: {batch_size}, seq_len: {seq_length}...", end=" ", flush=True)
         m, throughput = benchmark_bert(batch_size, seq_length, config["min_run_time"])
 
         results.append({
             "benchmark": "bert",
-            "params": {"batch_size": batch_size, "seq_length":  seq_length},
+            "params": {"batch_size": batch_size, "seq_length": seq_length},
             "median_ms": m.median * 1000,
-            "iqr_ms": m. iqr * 1000,
+            "iqr_ms": m.iqr * 1000,
             "throughput_seqs_per_sec": throughput,
-            "num_runs": len(m. times),
+            "num_runs": len(m.times),
         })
         print(f"{m.median * 1000:.2f} ms, {throughput:.1f} seq/s")
 
@@ -220,41 +327,114 @@ BENCHMARK_RUNNERS = {
 }
 
 
+# =============================================================================
+# M2 T3: OVERHEAD MEASUREMENT WITH WARMUP + ITERATIONS
+# =============================================================================
+
+def run_single_iteration(benchmark_name: str, config: Dict) -> float:
+    """Run a single benchmark iteration, return total time in ms."""
+    import torch
+    
+    start = time.perf_counter()
+    torch.cuda.synchronize()
+    
+    runner = BENCHMARK_RUNNERS[benchmark_name]
+    runner(config)
+    
+    torch.cuda.synchronize()
+    elapsed = time.perf_counter() - start
+    
+    return elapsed * 1000  # ms
+
+
+def run_overhead_measurement(
+    benchmark_name: str,
+    mode: str,
+    iterations: int,
+    warmup: int,
+) -> Dict[str, Any]:
+    """
+    Run benchmark with warmup and multiple iterations for overhead analysis.
+    M2 T3 Week 1: Sample size N=30, warmup=3
+    """
+    config = BENCHMARK_CONFIG[benchmark_name]
+    times = []
+    
+    print(f"\n{'='*60}")
+    print(f"OVERHEAD MEASUREMENT: {benchmark_name}")
+    print(f"Mode: {mode}, Warmup: {warmup}, Iterations: {iterations}")
+    print(f"{'='*60}")
+    
+    with ProfilerContext(mode):
+        # Warmup phase
+        for i in range(warmup):
+            print(f"  [Warmup {i+1}/{warmup}]...", end=" ", flush=True)
+            t = run_single_iteration(benchmark_name, config)
+            print(f"{t:.2f} ms (discarded)")
+        
+        # Measurement phase
+        for i in range(iterations):
+            print(f"  [Iter {i+1}/{iterations}]...", end=" ", flush=True)
+            t = run_single_iteration(benchmark_name, config)
+            times.append(t)
+            print(f"{t:.2f} ms")
+    
+    # Calculate statistics
+    stats = calculate_stats(times)
+    
+    print(f"\n--- Statistics ---")
+    print(f"  Mean: {stats['mean']:.2f} ms")
+    print(f"  Std:  {stats['std']:.2f} ms")
+    print(f"  95% CI: [{stats['ci95_lower']:.2f}, {stats['ci95_upper']:.2f}] ms")
+    
+    return {
+        "benchmark": benchmark_name,
+        "mode": mode,
+        "warmup": warmup,
+        "iterations": iterations,
+        "times_ms": times,
+        "statistics": stats,
+    }
+
+
+# =============================================================================
+# MAIN
+# =============================================================================
+
 def run_suite(
     benchmarks: Optional[List[str]] = None,
     output_file: Optional[str] = None,
+    mode: str = "baseline",
+    iterations: int = 30,
+    warmup: int = 3,
 ) -> Dict[str, Any]:
     """
     Run the complete benchmark suite.
-
-    Args:
-        benchmarks: List of benchmark names to run (None = all)
-        output_file: Path to save JSON results (None = auto-generate)
-
-    Returns:
-        Dictionary with environment info and all results
+    
+    M2 T3 Extension: Added mode, iterations, warmup parameters.
     """
     import torch
 
     # Check CUDA availability
-    if not torch.cuda. is_available():
+    if not torch.cuda.is_available():
         print("ERROR: CUDA is not available!")
         sys.exit(1)
 
     # Determine which benchmarks to run
     if benchmarks is None:
-        benchmarks = list(BENCHMARK_RUNNERS. keys())
+        benchmarks = list(BENCHMARK_RUNNERS.keys())
 
     # Validate benchmark names
     for name in benchmarks:
         if name not in BENCHMARK_RUNNERS:
             print(f"ERROR: Unknown benchmark '{name}'")
-            print(f"Available:  {list(BENCHMARK_RUNNERS.keys())}")
+            print(f"Available: {list(BENCHMARK_RUNNERS.keys())}")
             sys.exit(1)
 
     # Collect environment info
     print("=" * 60)
     print("GROF Benchmark Suite")
+    print(f"Mode: {mode} | Iterations: {iterations} | Warmup: {warmup}")
     print("=" * 60)
     print("\nCollecting environment information...")
     environment = get_environment()
@@ -262,29 +442,43 @@ def run_suite(
     print(f"  PyTorch: {environment['pytorch_version']}")
     print(f"  CUDA: {environment['gpu']['cuda_version']}")
 
-    # Run benchmarks
+    # Run benchmarks with overhead measurement
     all_results = []
+    overhead_results = []
+    
     for name in benchmarks:
-        runner = BENCHMARK_RUNNERS[name]
-        config = BENCHMARK_CONFIG[name]
-        results = runner(config)
-        all_results.extend(results)
+        if iterations > 1:
+            # M2 T3 mode: Full overhead measurement
+            result = run_overhead_measurement(name, mode, iterations, warmup)
+            overhead_results.append(result)
+        else:
+            # Original M1 mode: Single run
+            with ProfilerContext(mode):
+                runner = BENCHMARK_RUNNERS[name]
+                config = BENCHMARK_CONFIG[name]
+                results = runner(config)
+                all_results.extend(results)
 
     # Compile final report
     report = {
         "environment": environment,
+        "mode": mode,
+        "iterations": iterations,
+        "warmup": warmup,
         "benchmarks_run": benchmarks,
         "results": all_results,
+        "overhead_measurements": overhead_results,
+        "timestamp": datetime.now().isoformat(),
     }
 
     # Save results
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    results_dir = os.path. join(script_dir, RESULTS_DIR)
+    results_dir = os.path.join(script_dir, RESULTS_DIR)
     os.makedirs(results_dir, exist_ok=True)
 
     if output_file is None:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_file = os.path. join(results_dir, f"benchmark_{timestamp}.json")
+        output_file = os.path.join(results_dir, f"benchmark_{mode}_{timestamp}.json")
 
     with open(output_file, "w") as f:
         json.dump(report, f, indent=2)
@@ -300,6 +494,17 @@ def main():
     parser = argparse.ArgumentParser(
         description="GROF Benchmark Suite Runner",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Profiling Modes (M2 T3):
+  baseline  - No profiling (pure baseline)
+  grof      - With GROF enabled (eBPF + CUPTI)
+  nsys      - With NVIDIA Nsight Systems (nsys profile)
+
+Examples:
+  python run_suite.py --mode=baseline --iterations=30
+  python run_suite.py --mode=grof -b resnet50 -n 30
+  python run_suite.py --mode=nsys --benchmarks micro_gemm bert
+        """
     )
 
     parser.add_argument(
@@ -315,11 +520,36 @@ def main():
         help="Output JSON file path"
     )
 
+    # M2 T3 Week 1: Three-Way Runner
+    parser.add_argument(
+        "--mode", "-m",
+        choices=["baseline", "grof", "nsys"],
+        default="baseline",
+        help="Profiling mode: baseline (no profiling), grof (GROF enabled), nsys (Nsight Systems)"
+    )
+
+    parser.add_argument(
+        "--iterations", "-n",
+        type=int,
+        default=30,
+        help="Number of iterations for statistical significance (default: 30)"
+    )
+
+    parser.add_argument(
+        "--warmup", "-w",
+        type=int,
+        default=3,
+        help="Number of warmup iterations before measuring (default: 3)"
+    )
+
     args = parser.parse_args()
 
     run_suite(
         benchmarks=args.benchmarks,
         output_file=args.output,
+        mode=args.mode,
+        iterations=args.iterations,
+        warmup=args.warmup,
     )
 
 
