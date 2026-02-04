@@ -8,12 +8,14 @@ export function aggregateSessionMetrics(
 
   const totalTimeMs = rawSession.end_time - rawSession.start_time;
 
-  // CPU
+  /* ================= CPU ================= */
+
   const cpuFunctionsMap = new Map<string, number>();
   let cpuTotalTimeMs = 0;
 
   for (const sample of rawSession.cpu_samples) {
     cpuTotalTimeMs += sample.duration_ms;
+
     cpuFunctionsMap.set(
       sample.function_name,
       (cpuFunctionsMap.get(sample.function_name) ?? 0) +
@@ -22,15 +24,20 @@ export function aggregateSessionMetrics(
   }
 
   const cpuFunctions = Array.from(cpuFunctionsMap.entries()).map(
-    ([name, totalTimeMs]) => ({ name, totalTimeMs })
+    ([name, totalTimeMs]) => ({
+      name,
+      totalTimeMs,
+    })
   );
 
-  // GPU
+  /* ================= GPU ================= */
+
   let gpuTotalTimeMs = 0;
   let memcpyTimeMs = 0;
+
   const gpuKernelsMap = new Map<
     string,
-    { totalTimeMs: number; count: number }
+    { totalTimeMs: number; calls: number }
   >();
 
   for (const event of rawSession.gpu_events) {
@@ -38,37 +45,46 @@ export function aggregateSessionMetrics(
 
     if (event.type === "memcpy") {
       memcpyTimeMs += event.duration_ms;
-    } else {
-      const entry =
-        gpuKernelsMap.get(event.kernel_name) ??
-        { totalTimeMs: 0, count: 0 };
-
-      entry.totalTimeMs += event.duration_ms;
-      entry.count += 1;
-
-      gpuKernelsMap.set(event.kernel_name, entry);
+      continue;
     }
+
+    const entry =
+      gpuKernelsMap.get(event.kernel_name) ??
+      { totalTimeMs: 0, calls: 0 };
+
+    entry.totalTimeMs += event.duration_ms;
+    entry.calls += 1;
+
+    gpuKernelsMap.set(event.kernel_name, entry);
   }
 
   const gpuKernels = Array.from(gpuKernelsMap.entries()).map(
     ([name, data]) => ({
       name,
       totalTimeMs: data.totalTimeMs,
-      count: data.count,
+      calls: data.calls,
+
+      // Week 4+ (filled later by T2 / backend)
+      smEfficiency: undefined,
+      dramUtilization: undefined,
     })
   );
 
   const gpuIdleTimeMs = totalTimeMs - gpuTotalTimeMs;
 
+  /* ================= RESULT ================= */
+
   return {
     sessionId,
     totalTimeMs,
+
     cpuTotalTimeMs,
     cpuFunctions,
+
     gpuTotalTimeMs,
     gpuIdleTimeMs,
     gpuKernels,
+
     memcpyTimeMs,
   };
 }
-

@@ -1,29 +1,51 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 
 import { fetchSessionById } from "../api/sessions";
 import { aggregateSessionMetrics } from "../utils/aggregateSessionMetrics";
-
-import Flamegraph from "../components/Flamegraph";
-import FlamegraphLegend from "../components/FlamegraphLegend";
-import { mockFlamegraphData } from "../data/mockFlamegraphData";
+import { exportElementToPdf } from "../utils/exportPdf";
+import { generateRecommendations } from "../utils/performanceInsights";
 
 import type { SessionMetrics } from "../types/comparison";
+import type { RawSession } from "../types/rawSession";
 
-type CompareItem = {
-  sessionId: string;
+import KernelAnalysisTable from "../components/KernelAnalysisTable";
+import RecommendationsPanel from "../components/RecommendationsPanel";
+
+/* ================= TYPES ================= */
+
+type SessionComparison = {
+  sessionId: number;
+  session: RawSession;
   metrics: SessionMetrics;
 };
+
+/* ================= HELPERS ================= */
+
+function toNumericSessionId(id: string): number | null {
+  const match = id.match(/\d+$/);
+  return match ? Number(match[0]) : null;
+}
+
+/* ================= COMPONENT ================= */
 
 export default function CompareRuns() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const reportRef = useRef<HTMLDivElement>(null);
 
-  const idsParam = searchParams.get("ids") ?? "";
-  const sessionIds = idsParam.split(",").filter(Boolean);
+  const sessionIds = useMemo(() => {
+    const raw = searchParams.get("ids");
+    if (!raw) return [];
 
-  const [items, setItems] = useState<CompareItem[]>([]);
-  const [loading, setLoading] = useState(true);
+    return raw
+      .split(",")
+      .map(toNumericSessionId)
+      .filter((id): id is number => id !== null);
+  }, [searchParams]);
+
+  const [data, setData] = useState<SessionComparison[]>([]);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -31,37 +53,33 @@ export default function CompareRuns() {
 
     async function load() {
       if (sessionIds.length < 2) {
-        setError("Select at least two sessions to compare.");
-        setLoading(false);
+        setData([]);
         return;
       }
 
       try {
         setLoading(true);
+        setError(null);
 
         const results = await Promise.all(
           sessionIds.map(async (id) => {
-            console.log("Fetching session with id:", id);
-            const raw = await fetchSessionById(id);
+            const session = await fetchSessionById(String(id));
+            const metrics = aggregateSessionMetrics(session);
 
-            const metrics = aggregateSessionMetrics(raw);
-
-            return { sessionId: id, metrics };
+            return {
+              sessionId: id,
+              session,
+              metrics,
+            };
           })
         );
 
-        if (!cancelled) {
-          setItems(results);
-        }
-      } catch (e) {
-        console.error(e);
-        if (!cancelled) {
-          setError("Failed to load comparison data.");
-        }
+        if (!cancelled) setData(results);
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) setError("Failed to load comparison data.");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+        if (!cancelled) setLoading(false);
       }
     }
 
@@ -69,88 +87,106 @@ export default function CompareRuns() {
     return () => {
       cancelled = true;
     };
-  }, [idsParam]); // ✅ correct dependency
+  }, [sessionIds]);
 
-  if (loading) {
-    return <p style={{ padding: 20 }}>Loading comparison…</p>;
-  }
+  /* ================= RENDER ================= */
 
-  if (error) {
+  if (loading) return <p style={{ padding: 20 }}>Loading comparison…</p>;
+
+  if (error)
     return (
       <div style={{ padding: 20 }}>
         <p style={{ color: "red" }}>{error}</p>
         <button onClick={() => navigate("/")}>← Back</button>
       </div>
     );
-  }
+
+  if (data.length < 2)
+    return (
+      <div style={{ padding: 20 }}>
+        <p>Select at least two sessions.</p>
+        <button onClick={() => navigate("/")}>← Back</button>
+      </div>
+    );
+
+  const recommendations = generateRecommendations(data[0].metrics);
 
   return (
-    <div style={{ padding: 20 }}>
-      <button onClick={() => navigate("/")}>← Back to Dashboard</button>
+    <div style={{ display: "flex" }}>
+      {/* ===== MAIN REPORT CONTENT ===== */}
+      <div ref={reportRef} style={{ flex: 1, padding: 20 }}>
+        <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+          <button onClick={() => navigate("/")}>← Back</button>
 
-      <h1 style={{ margin: "20px 0" }}>Compare Runs</h1>
+          <button
+            onClick={() => {
+              if (reportRef.current) {
+                exportElementToPdf(
+                  reportRef.current,
+                  `grof-performance-report-session-${data[0].sessionId}.pdf`
+                );
+              }
+            }}
+            style={{
+              padding: "8px 16px",
+              background: "#2ecc71",
+              color: "#000",
+              border: "none",
+              borderRadius: "6px",
+              cursor: "pointer",
+            }}
+          >
+            Export PDF Report
+          </button>
+        </div>
 
-      {/* ================= METRICS TABLE ================= */}
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          marginBottom: 40,
-        }}
-      >
-        <thead>
-          <tr>
-            <th>Metric</th>
-            {items.map((i) => (
-              <th key={i.sessionId}>{i.sessionId}</th>
-            ))}
-            <th>Δ</th>
-          </tr>
-        </thead>
-        <tbody>
-          <MetricRow
-            label="Total Time (ms)"
-            values={items.map((i) => i.metrics.totalTimeMs)}
-            lowerIsBetter
-          />
-          <MetricRow
-            label="CPU Time (ms)"
-            values={items.map((i) => i.metrics.cpuTotalTimeMs)}
-            lowerIsBetter
-          />
-          <MetricRow
-            label="GPU Time (ms)"
-            values={items.map((i) => i.metrics.gpuTotalTimeMs)}
-            lowerIsBetter
-          />
-        </tbody>
-      </table>
+        <h1>Compare Runs</h1>
 
-      {/* ================= FLAMEGRAPHS ================= */}
-      <h2>Flamegraphs (Side-by-Side)</h2>
-      <FlamegraphLegend />
+        {/* ===== METRICS TABLE ===== */}
+        <table style={{ width: "100%", marginBottom: 30 }}>
+          <thead>
+            <tr>
+              <th>Metric</th>
+              {data.map((d) => (
+                <th key={d.sessionId}>Session {d.sessionId}</th>
+              ))}
+              <th>Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            <MetricRowWithDelta
+              label="Total GPU Time (ms)"
+              values={data.map((d) => d.metrics.gpuTotalTimeMs)}
+              lowerIsBetter
+            />
+            <MetricRowWithDelta
+              label="Memcpy Time (ms)"
+              values={data.map((d) => d.metrics.memcpyTimeMs)}
+              lowerIsBetter
+            />
+            <MetricRowWithDelta
+              label="# GPU Kernels"
+              values={data.map((d) => d.metrics.gpuKernels.length)}
+              lowerIsBetter={false}
+            />
+          </tbody>
+        </table>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: `repeat(${items.length}, 1fr)`,
-          gap: 20,
-        }}
-      >
-        {items.map((i) => (
-          <div key={i.sessionId}>
-            <h3 style={{ textAlign: "center" }}>{i.sessionId}</h3>
-            <Flamegraph data={mockFlamegraphData} height={400} />
-          </div>
+        {/* ===== KERNEL ANALYSIS ===== */}
+        {data.map((d) => (
+          <KernelAnalysisTable key={d.sessionId} metrics={d.metrics} />
         ))}
       </div>
+
+      {/* ===== RECOMMENDATIONS PANEL ===== */}
+      <RecommendationsPanel recommendations={recommendations} />
     </div>
   );
 }
 
-/* ================= METRIC ROW ================= */
+/* ================= HELPER ================= */
 
-function MetricRow({
+function MetricRowWithDelta({
   label,
   values,
   lowerIsBetter,
@@ -161,20 +197,19 @@ function MetricRow({
 }) {
   const a = values[0];
   const b = values[1];
+
   const delta = b - a;
   const percent = a !== 0 ? (delta / a) * 100 : 0;
-
   const improved = lowerIsBetter ? delta < 0 : delta > 0;
-  const color = improved ? "#2ecc71" : "#e74c3c";
 
   return (
     <tr>
       <td>{label}</td>
       <td>{Math.round(a)}</td>
       <td>{Math.round(b)}</td>
-      <td style={{ color, fontWeight: 600 }}>
+      <td style={{ color: improved ? "green" : "red" }}>
         {delta > 0 ? "+" : ""}
-        {Math.round(delta)} ({percent.toFixed(1)}%)
+        {delta.toFixed(1)} ({percent.toFixed(1)}%)
       </td>
     </tr>
   );
