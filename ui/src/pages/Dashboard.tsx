@@ -1,97 +1,79 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import SessionList from "../components/SessionList";
-import CpuSampleList from "../components/CpuSampleList";
-import GpuEventList from "../components/GpuEventList";
-
-import Flamegraph from "../components/Flamegraph";
-import FlamegraphLegend from "../components/FlamegraphLegend";
-import Timeline from "../components/Timeline";
-
-import { mockFlamegraphData } from "../data/mockFlamegraphData";
-import { mockGpuEvents } from "../data/mockGpuEvents";
-import { mockSessions } from "../data/mockSessions";
+import { fetchSessions } from "../api/sessions";
+import type { Session } from "../types/session";
 
 export default function Dashboard() {
-  // Week 3: multi-session selection state
+  console.log("✅ Dashboard render start");
+
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
   const [selectedSessionIds, setSelectedSessionIds] = useState<string[]>([]);
   const navigate = useNavigate();
 
-  function toggleSessionSelection(sessionId: string) {
+  useEffect(() => {
+    console.log("➡️ useEffect running");
+
+    fetchSessions()
+      .then((data) => {
+        console.log("✅ sessions received", data);
+        setSessions(data);
+      })
+      .catch((err) => {
+        console.error("❌ fetchSessions failed", err);
+        setError("Failed to load sessions");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, []);
+
+  function toggleSessionSelection(id: string) {
     setSelectedSessionIds((prev) =>
-      prev.includes(sessionId)
-        ? prev.filter((id) => id !== sessionId)
-        : [...prev, sessionId]
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
   }
 
   function handleCompare() {
     if (selectedSessionIds.length < 2) return;
+    navigate(`/compare?ids=${selectedSessionIds.join(",")}`);
+  }
 
-    const query = selectedSessionIds.join(",");
-    navigate(`/compare?ids=${query}`);
+  // 🛑 HARD GUARDS — NOTHING CAN CRASH BELOW
+  if (loading) {
+    return <div style={{ padding: 20 }}>Loading sessions…</div>;
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: 20, color: "red" }}>
+        {error}
+      </div>
+    );
   }
 
   return (
-    <div
-      style={{
-        padding: "20px",
-        width: "100%",
-        boxSizing: "border-box",
-      }}
-    >
-      <h1 style={{ marginBottom: "10px" }}>GROF Dashboard</h1>
+    <div style={{ padding: 20 }}>
+      <h1>GROF Dashboard</h1>
 
-      {/* Selection feedback */}
-      <p style={{ color: "#888", marginBottom: "10px" }}>
-        Selected sessions: {selectedSessionIds.length}
-      </p>
+      <p>Sessions loaded: {sessions.length}</p>
 
-      {/* Compare button */}
       <button
         onClick={handleCompare}
         disabled={selectedSessionIds.length < 2}
-        style={{
-          marginBottom: "30px",
-          padding: "10px 18px",
-          borderRadius: "8px",
-          border: "none",
-          cursor:
-            selectedSessionIds.length < 2 ? "not-allowed" : "pointer",
-          background:
-            selectedSessionIds.length < 2 ? "#555" : "#646cff",
-          color: "#fff",
-          fontWeight: "600",
-          opacity: selectedSessionIds.length < 2 ? 0.6 : 1,
-        }}
       >
         Compare ({selectedSessionIds.length})
       </button>
 
-      <div style={{ display: "grid", gap: "30px", width: "100%" }}>
-        {/* Session list with selection */}
-        <SessionList
-          sessions={mockSessions}
-          selectedSessionIds={selectedSessionIds}
-          onToggleSelect={toggleSessionSelection}
-        />
-
-        {/* Existing components */}
-        <CpuSampleList />
-        <GpuEventList />
-
-        <section>
-          <h2 style={{ marginBottom: "15px" }}>GPU Timeline</h2>
-          <Timeline events={mockGpuEvents} height={400} />
-        </section>
-
-        <section>
-          <h2 style={{ marginBottom: "15px" }}>Flamegraph</h2>
-          <FlamegraphLegend />
-          <Flamegraph data={mockFlamegraphData} height={600} />
-        </section>
-      </div>
+      <SessionList
+        sessions={sessions}
+        selectedSessionIds={selectedSessionIds}
+        onToggleSelect={toggleSessionSelection}
+      />
     </div>
   );
 }
