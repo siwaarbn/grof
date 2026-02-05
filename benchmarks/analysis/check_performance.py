@@ -3,10 +3,22 @@ import os
 import sys
 import numpy as np
 
+# ================= CONFIG =================
 BASELINE_FILE = "benchmarks/results/benchmark_baseline_reference.json"
 CURRENT_FILE  = "benchmarks/results/benchmark_latest.json"
+THRESHOLD = 0.02   # 2% allowed overhead
+# ==========================================
 
-THRESHOLD = 0.02  # 2% allowed regression
+
+# ---------- CI SAFETY ----------
+if not os.path.exists(BASELINE_FILE):
+    print("⚠ No baseline reference found — skipping regression check.")
+    sys.exit(0)
+
+if not os.path.exists(CURRENT_FILE):
+    print("⚠ No current benchmark found — skipping regression check.")
+    sys.exit(0)
+# ------------------------------
 
 
 def load_mean_runtime(path):
@@ -18,14 +30,6 @@ def load_mean_runtime(path):
         means.append(entry["statistics"]["mean"])
 
     return np.mean(means)
-
-
-# ---------- CI SAFETY ----------
-if not os.path.exists(BASELINE_FILE) or not os.path.exists(CURRENT_FILE):
-    print("⚠ No benchmark JSON files found.")
-    print("Skipping performance regression check.")
-    sys.exit(0)
-# ------------------------------
 
 
 baseline_mean = load_mean_runtime(BASELINE_FILE)
