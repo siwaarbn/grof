@@ -11,9 +11,8 @@ from app.routers.critical_path import router as critical_path_router
 
 app = FastAPI()
 
-app.include_router(sessions_router)
-app.include_router(cpu_correlation_router)
-app.include_router(time_sync_router)
-app.include_router(correlated_events_router)
-app.include_router(critical_path_router)
 app.include_router(sessions_router, prefix="/api/v1")
+app.include_router(cpu_correlation_router, prefix="/api/v1")
+app.include_router(time_sync_router, prefix="/api/v1")
+app.include_router(correlated_events_router, prefix="/api/v1")
+app.include_router(critical_path_router, prefix="/api/v1")
