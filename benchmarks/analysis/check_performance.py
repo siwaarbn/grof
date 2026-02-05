@@ -1,31 +1,47 @@
-import pandas as pd 
-from scipy import stats
+import json
+import os
+import sys
+import numpy as np
 
-baseline= "results/resnet50_analysis.py"
-new="results/run_baseline_50.py"
+BASELINE_FILE = "benchmarks/results/benchmark_baseline_reference.json"
+CURRENT_FILE  = "benchmarks/results/benchmark_latest.json"
 
-baseline_df= pd.read_csv(baseline)
-new_df=pd.read_csv(new)
-baselinetime=baseline_df["time_ms"]
-newtime= new_df["time_ms"]
+THRESHOLD = 0.02  # 2% allowed regression
 
-baselinetimemean=baselinetime.mean()
-newtimemean=newtime.mean()
-print(f"performance regression test stats")
-print(f"----------------------------------")
-print(f"baseline_mean_time_ms{baselinetimemean:.3f}")
-print(f"new_mean_time_ms{newtimemean:.3f}")
 
-t_stat,p_value =stats.ttest_ind(
-    baselinetime,
-    newtime,
-    equal_var=False
-)
-print(f"t_stat={t_stat:.3f}")
-print(f"p_value={p_value:.6f}")
+def load_mean_runtime(path):
+    with open(path, "r") as f:
+        data = json.load(f)
 
-if(p_value<0.05):
-    print(f"statistically significant")
+    means = []
+    for entry in data["overhead_measurements"]:
+        means.append(entry["statistics"]["mean"])
 
-elif(p_value>=0.05):
-    print(f"statistically insignificant")
+    return np.mean(means)
+
+
+# ---------- CI SAFETY ----------
+if not os.path.exists(BASELINE_FILE) or not os.path.exists(CURRENT_FILE):
+    print("⚠ No benchmark JSON files found.")
+    print("Skipping performance regression check.")
+    sys.exit(0)
+# ------------------------------
+
+
+baseline_mean = load_mean_runtime(BASELINE_FILE)
+current_mean  = load_mean_runtime(CURRENT_FILE)
+
+overhead = (current_mean - baseline_mean) / baseline_mean
+
+print("Performance regression check")
+print("--------------------------------")
+print(f"Baseline mean runtime : {baseline_mean:.2f} ms")
+print(f"Current mean runtime  : {current_mean:.2f} ms")
+print(f"Overhead              : {overhead*100:.2f}%")
+
+if overhead > THRESHOLD:
+    print(" Performance regression detected (> 2%)")
+    sys.exit(1)
+
+print("Performance within acceptable limits")
+sys.exit(0)
