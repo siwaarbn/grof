@@ -4,7 +4,6 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 import { fetchSessionById } from "../api/sessions";
 import { aggregateSessionMetrics } from "../utils/aggregateSessionMetrics";
 import { exportElementToPdf } from "../utils/exportPdf";
-import { generateRecommendations } from "../utils/performanceInsights";
 
 import type { SessionMetrics } from "../types/comparison";
 import type { RawSession } from "../types/rawSession";
@@ -109,8 +108,6 @@ export default function CompareRuns() {
       </div>
     );
 
-  const recommendations = generateRecommendations(data[0].metrics);
-
   return (
     <div style={{ display: "flex" }}>
       {/* ===== MAIN REPORT CONTENT ===== */}
@@ -174,12 +171,15 @@ export default function CompareRuns() {
 
         {/* ===== KERNEL ANALYSIS ===== */}
         {data.map((d) => (
-          <KernelAnalysisTable key={d.sessionId} metrics={d.metrics} />
+          <KernelAnalysisTable
+            key={d.sessionId}
+            metrics={d.metrics}
+          />
         ))}
       </div>
 
-      {/* ===== RECOMMENDATIONS PANEL ===== */}
-      <RecommendationsPanel recommendations={recommendations} />
+      {/* ===== RECOMMENDATIONS SIDE PANEL ===== */}
+      <RecommendationsPanel metrics={data[0].metrics} />
     </div>
   );
 }
