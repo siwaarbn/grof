@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+<<<<<<< HEAD
 
 from app.database import engine
 from app.models import Base  # IMPORTANT: imports all models
+=======
+>>>>>>> origin/BACKEND
 
 from app.routers.sessions import router as sessions_router
 from app.routers.cpu_correlation import router as cpu_correlation_router
@@ -28,6 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+<<<<<<< HEAD
 # --------------------
 # Routers
 # --------------------
@@ -36,3 +40,25 @@ app.include_router(cpu_correlation_router, prefix="/api/v1")
 app.include_router(time_sync_router, prefix="/api/v1")
 app.include_router(correlated_events_router, prefix="/api/v1")
 app.include_router(critical_path_router, prefix="/api/v1")
+=======
+app = FastAPI()
+
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+app.include_router(sessions_router)
+app.include_router(cpu_correlation_router)
+app.include_router(time_sync_router)
+app.include_router(correlated_events_router)
+app.include_router(critical_path_router)
+app.include_router(sessions_router, prefix="/api/v1")
+>>>>>>> origin/BACKEND
