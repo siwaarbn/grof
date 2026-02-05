@@ -1,30 +1,36 @@
 import { api } from "./client";
 import type { Session } from "../types/session";
 
-
+/**
+ * Raw shape returned by FastAPI (/api/v1/sessions)
+ */
 interface RawSession {
-  id: string;
+  id: number;
   name: string;
-  start_time: string;
-  end_time: string | null;
-  status: "completed" | "running" | "failed";
-  gpu_usage?: number;
-  cpu_usage?: number;
+  start_time: number; // nanoseconds
+  end_time: number | null; // nanoseconds | null
+  git_commit_hash?: string | null;
+  tags?: unknown;
 }
 
-
 function adaptSession(raw: RawSession): Session {
-  const start = new Date(raw.start_time);
-  const end = raw.end_time ? new Date(raw.end_time) : new Date();
+  const startMs = raw.start_time / 1e6;
+  const endMs = raw.end_time ? raw.end_time / 1e6 : null;
+
+  const start = new Date(startMs);
+  const end = endMs ? new Date(endMs) : new Date();
 
   return {
-    id: raw.id,
-    name: raw.name,
-    date: start.toISOString().slice(0, 19).replace("T", " "),
-    duration: Math.max(0, Math.floor((end.getTime() - start.getTime()) / 1000)),
-    status: raw.status,
-    gpuUsage: raw.gpu_usage ?? 0,
-    cpuUsage: raw.cpu_usage ?? 0,
+    id: String(raw.id),
+    name: raw.name ?? "unnamed",
+    date: start.toLocaleString(),
+    duration: Math.max(
+      0,
+      Math.floor((end.getTime() - start.getTime()) / 1000)
+    ),
+    status: raw.end_time ? "completed" : "running",
+    gpuUsage: 0,
+    cpuUsage: 0,
   };
 }
 
