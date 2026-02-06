@@ -36,3 +36,6 @@ __pycache__/
 # Virtual environments
 .venv/
 venv/
+# Profiling traces (DO NOT COMMIT)
+*.nsys-rep
+*.qdrep
