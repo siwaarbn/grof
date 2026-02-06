@@ -23,7 +23,7 @@ class Session(Base):
         cascade="all, delete-orphan",
     )
 
-    # ✅ FIX: GPU events relationship
+   
     gpu_events = relationship(
         "GpuEvent",
         back_populates="session",

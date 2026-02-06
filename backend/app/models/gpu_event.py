@@ -15,3 +15,7 @@ class GpuEvent(Base):
     end_time = Column(BigInteger, nullable=False)
     stream_id = Column(Integer, nullable=True)
 
+    session = relationship(
+        "Session",
+        back_populates="gpu_events",
+    )

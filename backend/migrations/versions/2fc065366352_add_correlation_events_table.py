@@ -20,7 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade():
     op.create_table(
-        "correlation_event",
+        "correlation_events",
         sa.Column("id", sa.Integer, primary_key=True),
         sa.Column("session_id", sa.Integer, sa.ForeignKey("sessions.id"), nullable=False),
         sa.Column("correlation_id", sa.BigInteger, nullable=False),
@@ -32,4 +32,4 @@ def upgrade():
 
 
 def downgrade():
-    op.drop_table("correlation_event")
+    op.drop_table("correlation_events")
