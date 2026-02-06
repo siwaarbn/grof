@@ -1,13 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import type { RawSession } from "../types/rawSession";
 
-import { fetchSessionById } from "../api/sessions";
+/* ===== API ===== */
+import { fetchFlamegraph } from "../api/flamegraph";
+import { fetchCriticalPath } from "../api/criticalPath";
+
+/* ===== UTILS ===== */
 import { aggregateSessionMetrics } from "../utils/aggregateSessionMetrics";
 import { exportElementToPdf } from "../utils/exportPdf";
 
+/* ===== TYPES ===== */
 import type { SessionMetrics } from "../types/comparison";
-import type { RawSession } from "../types/rawSession";
 
+/* ===== COMPONENTS ===== */
 import KernelAnalysisTable from "../components/KernelAnalysisTable";
 import RecommendationsPanel from "../components/RecommendationsPanel";
 
@@ -15,15 +21,17 @@ import RecommendationsPanel from "../components/RecommendationsPanel";
 
 type SessionComparison = {
   sessionId: number;
-  session: RawSession;
   metrics: SessionMetrics;
 };
 
 /* ================= HELPERS ================= */
 
-function toNumericSessionId(id: string): number | null {
-  const match = id.match(/\d+$/);
-  return match ? Number(match[0]) : null;
+function parseSessionIds(param: string | null): number[] {
+  if (!param) return [];
+  return param
+    .split(",")
+    .map(Number)
+    .filter((x) => Number.isFinite(x));
 }
 
 /* ================= COMPONENT ================= */
@@ -33,15 +41,10 @@ export default function CompareRuns() {
   const navigate = useNavigate();
   const reportRef = useRef<HTMLDivElement>(null);
 
-  const sessionIds = useMemo(() => {
-    const raw = searchParams.get("ids");
-    if (!raw) return [];
-
-    return raw
-      .split(",")
-      .map(toNumericSessionId)
-      .filter((id): id is number => id !== null);
-  }, [searchParams]);
+  const sessionIds = useMemo(
+    () => parseSessionIds(searchParams.get("ids")),
+    [searchParams]
+  );
 
   const [data, setData] = useState<SessionComparison[]>([]);
   const [loading, setLoading] = useState(false);
@@ -62,20 +65,33 @@ export default function CompareRuns() {
 
         const results = await Promise.all(
           sessionIds.map(async (id) => {
-            const session = await fetchSessionById(String(id));
-            const metrics = aggregateSessionMetrics(session);
+            const [flamegraph, criticalPath] = await Promise.all([
+              fetchFlamegraph(String(id)),
+              fetchCriticalPath(String(id)),
+            ]);
+
+           
+            const metricsInput = {
+              flamegraph,
+              criticalPath,
+              cpu_samples: [], 
+              gpu_events: [], 
+            };
+
+            const metrics = aggregateSessionMetrics(
+              metricsInput as unknown as RawSession
+            );
 
             return {
               sessionId: id,
-              session,
               metrics,
             };
           })
         );
 
         if (!cancelled) setData(results);
-      } catch (err) {
-        console.error(err);
+      } catch (e) {
+        console.error(e);
         if (!cancelled) setError("Failed to load comparison data.");
       } finally {
         if (!cancelled) setLoading(false);
@@ -90,27 +106,30 @@ export default function CompareRuns() {
 
   /* ================= RENDER ================= */
 
-  if (loading) return <p style={{ padding: 20 }}>Loading comparison…</p>;
+  if (loading) {
+    return <div style={{ padding: 20 }}>Loading comparison…</div>;
+  }
 
-  if (error)
+  if (error) {
     return (
       <div style={{ padding: 20 }}>
         <p style={{ color: "red" }}>{error}</p>
         <button onClick={() => navigate("/")}>← Back</button>
       </div>
     );
+  }
 
-  if (data.length < 2)
+  if (data.length < 2) {
     return (
       <div style={{ padding: 20 }}>
         <p>Select at least two sessions.</p>
         <button onClick={() => navigate("/")}>← Back</button>
       </div>
     );
+  }
 
   return (
     <div style={{ display: "flex" }}>
-      {/* ===== MAIN REPORT CONTENT ===== */}
       <div ref={reportRef} style={{ flex: 1, padding: 20 }}>
         <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
           <button onClick={() => navigate("/")}>← Back</button>
@@ -120,17 +139,11 @@ export default function CompareRuns() {
               if (reportRef.current) {
                 exportElementToPdf(
                   reportRef.current,
-                  `grof-performance-report-session-${data[0].sessionId}.pdf`
+                  `grof-performance-report-${data
+                    .map((d) => d.sessionId)
+                    .join("-")}.pdf`
                 );
               }
-            }}
-            style={{
-              padding: "8px 16px",
-              background: "#2ecc71",
-              color: "#000",
-              border: "none",
-              borderRadius: "6px",
-              cursor: "pointer",
             }}
           >
             Export PDF Report
@@ -139,7 +152,6 @@ export default function CompareRuns() {
 
         <h1>Compare Runs</h1>
 
-        {/* ===== METRICS TABLE ===== */}
         <table style={{ width: "100%", marginBottom: 30 }}>
           <thead>
             <tr>
@@ -161,24 +173,17 @@ export default function CompareRuns() {
               values={data.map((d) => d.metrics.memcpyTimeMs)}
               lowerIsBetter
             />
-            <MetricRowWithDelta
-              label="# GPU Kernels"
-              values={data.map((d) => d.metrics.gpuKernels.length)}
-              lowerIsBetter={false}
-            />
           </tbody>
         </table>
 
-        {/* ===== KERNEL ANALYSIS ===== */}
         {data.map((d) => (
-          <div key={d.sessionId} style={{ marginBottom: 40 }}>
+          <div key={d.sessionId}>
             <h3>Session {d.sessionId}</h3>
             <KernelAnalysisTable kernels={d.metrics.gpuKernels} />
           </div>
         ))}
       </div>
 
-      {/* ===== RECOMMENDATIONS SIDE PANEL ===== */}
       <RecommendationsPanel metrics={data[0].metrics} />
     </div>
   );
@@ -195,8 +200,8 @@ function MetricRowWithDelta({
   values: number[];
   lowerIsBetter: boolean;
 }) {
-  const a = values[0];
-  const b = values[1];
+  const a = values[0] ?? 0;
+  const b = values[1] ?? 0;
 
   const delta = b - a;
   const percent = a !== 0 ? (delta / a) * 100 : 0;
@@ -208,7 +213,6 @@ function MetricRowWithDelta({
       <td>{Math.round(a)}</td>
       <td>{Math.round(b)}</td>
       <td style={{ color: improved ? "green" : "red" }}>
-        {delta > 0 ? "+" : ""}
         {delta.toFixed(1)} ({percent.toFixed(1)}%)
       </td>
     </tr>
