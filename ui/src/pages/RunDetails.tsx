@@ -1,53 +1,63 @@
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { mockSessions } from "../data/mockSessions";
+
 import Flamegraph from "../components/Flamegraph";
 import FlamegraphLegend from "../components/FlamegraphLegend";
-import { mockFlamegraphData } from "../data/mockFlamegraphData";
-import { useSession } from "../hooks";
+
+import { fetchFlamegraph } from "../api/flamegraph";
+import type { FlamegraphNode } from "../types/flamegraph";
 
 export default function RunDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const {  loading } = useSession(id);
+  const [flamegraph, setFlamegraph] = useState<FlamegraphNode | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const session = mockSessions.find((s) => s.id === id);
+  useEffect(() => {
+    if (!id) return;
+
+    setLoading(true);
+    setError(null);
+
+    fetchFlamegraph(id)
+      .then((data) => {
+        setFlamegraph(data);
+      })
+      .catch((err) => {
+        console.error("❌ Failed to load flamegraph", err);
+        setError("Failed to load flamegraph");
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [id]);
+
+  /* ================= RENDER ================= */
 
   if (loading) {
     return (
-      <div style={{ padding: "40px", textAlign: "center" }}>
+      <div style={{ padding: 40, textAlign: "center" }}>
         <h2>Loading session…</h2>
       </div>
     );
   }
 
-  if (!session) {
+  if (error || !id) {
     return (
-      <div style={{ padding: "40px", textAlign: "center" }}>
+      <div style={{ padding: 40, textAlign: "center" }}>
         <h1>Session not found</h1>
-        <p>Session ID: {id}</p>
-        <button
-          onClick={() => navigate("/")}
-          style={{
-            padding: "10px 20px",
-            background: "#646cff",
-            color: "#fff",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            marginTop: "20px",
-          }}
-        >
-          ← Back to Dashboard
-        </button>
+        <p>{error}</p>
+        <button onClick={() => navigate("/")}>← Back to Dashboard</button>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: "20px", width: "100%", boxSizing: "border-box" }}>
+    <div style={{ padding: 20, width: "100%", boxSizing: "border-box" }}>
       {/* Header */}
-      <div style={{ marginBottom: "30px" }}>
+      <div style={{ marginBottom: 30 }}>
         <button
           onClick={() => navigate("/")}
           style={{
@@ -57,81 +67,28 @@ export default function RunDetails() {
             border: "1px solid #646cff",
             borderRadius: "6px",
             cursor: "pointer",
-            marginBottom: "20px",
+            marginBottom: 20,
           }}
         >
           ← Back to Dashboard
         </button>
 
-        <h1 style={{ marginBottom: "10px" }}>{session.name}</h1>
+        <h1 style={{ marginBottom: 10 }}>Session {id}</h1>
         <p style={{ color: "#888", margin: 0 }}>
-          Session ID: <code>{session.id}</code> | Date: {session.date}
+          Flamegraph visualization
         </p>
-      </div>
-
-      {/* Session Info Cards */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-          gap: "20px",
-          marginBottom: "30px",
-        }}
-      >
-        <div style={{ background: "#1e1e1e", padding: "20px", borderRadius: "8px" }}>
-          <h3 style={{ margin: "0 0 10px 0", color: "#888", fontSize: "14px" }}>
-            Duration
-          </h3>
-          <p style={{ margin: 0, fontSize: "24px", fontWeight: "600" }}>
-            {Math.floor(session.duration / 60)}m {session.duration % 60}s
-          </p>
-        </div>
-
-        <div style={{ background: "#1e1e1e", padding: "20px", borderRadius: "8px" }}>
-          <h3 style={{ margin: "0 0 10px 0", color: "#888", fontSize: "14px" }}>
-            GPU Usage
-          </h3>
-          <p style={{ margin: 0, fontSize: "24px", fontWeight: "600", color: "#9b59b6" }}>
-            {session.gpuUsage}%
-          </p>
-        </div>
-
-        <div style={{ background: "#1e1e1e", padding: "20px", borderRadius: "8px" }}>
-          <h3 style={{ margin: "0 0 10px 0", color: "#888", fontSize: "14px" }}>
-            CPU Usage
-          </h3>
-          <p style={{ margin: 0, fontSize: "24px", fontWeight: "600", color: "#3498db" }}>
-            {session.cpuUsage}%
-          </p>
-        </div>
-
-        <div style={{ background: "#1e1e1e", padding: "20px", borderRadius: "8px" }}>
-          <h3 style={{ margin: "0 0 10px 0", color: "#888", fontSize: "14px" }}>
-            Status
-          </h3>
-          <p
-            style={{
-              margin: 0,
-              fontSize: "24px",
-              fontWeight: "600",
-              color:
-                session.status === "completed"
-                  ? "#2ecc71"
-                  : session.status === "failed"
-                  ? "#e74c3c"
-                  : "#3498db",
-            }}
-          >
-            {session.status.toUpperCase()}
-          </p>
-        </div>
       </div>
 
       {/* Flamegraph */}
       <section>
-        <h2 style={{ marginBottom: "15px" }}>Flamegraph</h2>
+        <h2 style={{ marginBottom: 15 }}>Flamegraph</h2>
         <FlamegraphLegend />
-        <Flamegraph data={mockFlamegraphData} height={600} />
+
+        {flamegraph ? (
+          <Flamegraph data={flamegraph} height={600} />
+        ) : (
+          <p style={{ color: "#888" }}>No flamegraph data available.</p>
+        )}
       </section>
     </div>
   );

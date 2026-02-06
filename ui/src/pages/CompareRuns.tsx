@@ -171,10 +171,10 @@ export default function CompareRuns() {
 
         {/* ===== KERNEL ANALYSIS ===== */}
         {data.map((d) => (
-          <KernelAnalysisTable
-            key={d.sessionId}
-            metrics={d.metrics}
-          />
+          <div key={d.sessionId} style={{ marginBottom: 40 }}>
+            <h3>Session {d.sessionId}</h3>
+            <KernelAnalysisTable kernels={d.metrics.gpuKernels} />
+          </div>
         ))}
       </div>
 

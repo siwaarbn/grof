@@ -59,16 +59,19 @@ export function aggregateSessionMetrics(
   }
 
   const gpuKernels = Array.from(gpuKernelsMap.entries()).map(
-    ([name, data]) => ({
-      name,
-      totalTimeMs: data.totalTimeMs,
-      calls: data.calls,
+  ([name, data]) => ({
+    name,
+    count: data.calls,
+    totalTimeMs: data.totalTimeMs,
 
-      // Week 4+ (filled later by T2 / backend)
-      smEfficiency: undefined,
-      dramUtilization: undefined,
-    })
-  );
+    // backend not providing these yet
+    smEfficiency: undefined,
+    dramUtilization: undefined,
+  })
+);
+
+
+
 
   const gpuIdleTimeMs = totalTimeMs - gpuTotalTimeMs;
 

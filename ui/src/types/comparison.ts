@@ -6,10 +6,19 @@ export interface CpuFunctionMetric {
 }
 
 export interface GpuKernelMetric {
-  name: string
-  totalTimeMs: number
-  count: number
+  name: string;
+
+  // number of kernel launches
+  count: number;
+
+  // accumulated execution time
+  totalTimeMs: number;
+
+  // optional (future backend metrics)
+  smEfficiency?: number;
+  dramUtilization?: number;
 }
+
 
 export interface SessionMetrics {
   sessionId: string
