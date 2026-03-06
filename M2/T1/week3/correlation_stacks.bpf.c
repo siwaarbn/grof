@@ -1,13 +1,8 @@
 #include <uapi/linux/ptrace.h>
 #include <linux/types.h>
 
-#define MAX_STACK_ENTRIES 1024
-
 enum cuda_api_kind {
     CUDA_API_UNKNOWN = 0,
-    CUDA_API_LAUNCH_KERNEL = 1,
-    CUDA_API_MEMCPY_ASYNC = 2,
-    CUDA_API_STREAM_SYNC  = 3,
 };
 
 struct correlation_event {
@@ -19,47 +14,36 @@ struct correlation_event {
     s32 stack_id;
 };
 
-BPF_STACK_TRACE(stack_traces, MAX_STACK_ENTRIES);
+BPF_STACK_TRACE(stack_traces, 1024);
 BPF_PERF_OUTPUT(correlation_events);
 
-static __always_inline u32 get_pid(void) {
+static __always_inline u32 get_pid() {
     return (u32)(bpf_get_current_pid_tgid() >> 32);
 }
 
-static __always_inline u32 get_tid(void) {
+static __always_inline u32 get_tid() {
     return (u32)bpf_get_current_pid_tgid();
 }
 
-static __always_inline int emit_correlation_event(struct pt_regs *ctx, u32 api_kind) {
+static __always_inline void emit_event(struct pt_regs *ctx, u32 api_kind) {
+    u32 pid = get_pid();
+    u32 tid = get_tid();
+    u64 ts = bpf_ktime_get_ns();
+
+    s32 stack_id = stack_traces.get_stackid(ctx, BPF_F_USER_STACK);
 
     struct correlation_event ev = {};
-
-    ev.timestamp_ns = bpf_ktime_get_ns();
-    ev.pid = get_pid();
-    ev.tid = get_tid();
-    ev.correlation_id = ev.timestamp_ns;
+    ev.timestamp_ns = ts;
+    ev.pid = pid;
+    ev.tid = tid;
+    ev.correlation_id = ts;
     ev.api_kind = api_kind;
-
-    ev.stack_id = bpf_get_stackid(
-        ctx,
-        &stack_traces,
-        BPF_F_USER_STACK
-    );
+    ev.stack_id = stack_id;
 
     correlation_events.perf_submit(ctx, &ev, sizeof(ev));
+}
 
+int on_init_grof(struct pt_regs *ctx) {
+    emit_event(ctx, CUDA_API_UNKNOWN);
     return 0;
-
-}
-
-int on_cudaLaunchKernel(struct pt_regs *ctx) {
-    return emit_correlation_event(ctx, CUDA_API_LAUNCH_KERNEL);
-}
-
-int on_cudaMemcpyAsync(struct pt_regs *ctx) {
-    return emit_correlation_event(ctx, CUDA_API_MEMCPY_ASYNC);
-}
-
-int on_cudaStreamSynchronize(struct pt_regs *ctx) {
-    return emit_correlation_event(ctx, CUDA_API_STREAM_SYNC);
 }

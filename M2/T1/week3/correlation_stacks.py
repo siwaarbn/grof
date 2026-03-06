@@ -2,9 +2,6 @@
 from bcc import BPF
 import ctypes as ct
 import json
-import subprocess
-import os
-import sys
 import traceback
 from stack_resolver import resolve_stack
 
@@ -20,17 +17,19 @@ class CorrelationEvent(ct.Structure):
         ("stack_id", ct.c_int),
     ]
 
-API_KIND_TO_NAME = {
-    1: "cudaLaunchKernel",
-    2: "cudaMemcpyAsync",
-    3: "cudaStreamSynchronize",
-}
-
 def get_python_stack():
     stack = traceback.extract_stack()[:-2]
     return [f"{f.name}" for f in stack]
 
 b = BPF(src_file="correlation_stacks.bpf.c")
+
+b.attach_uprobe(
+    name="/home/fbg/grof/libgrof_cuda.so",
+    sym="init_grof",
+    fn_name="on_init_grof"
+)
+
+
 stack_traces = b.get_table("stack_traces")
 
 f = open(OUTFILE, "a", buffering=1)
@@ -51,7 +50,6 @@ def handle_event(cpu, data, size):
         "pid": int(ev.pid),
         "tid": int(ev.tid),
         "correlation_id": int(ev.correlation_id),
-        "api": API_KIND_TO_NAME.get(ev.api_kind, "unknown"),
         "stack": python_frames + native_frames,
     }
 
@@ -59,7 +57,7 @@ def handle_event(cpu, data, size):
 
 b["correlation_events"].open_perf_buffer(handle_event)
 
-print("[INFO] Collecting correlation events with stacks")
+print("[INFO] Collecting correlation events")
 
 try:
     while True:
