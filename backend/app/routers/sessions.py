@@ -46,6 +46,8 @@ def ingest_cpu_samples(
     batch: CpuSampleBatch,
     db: Session = Depends(get_db),
 ):
+    from app.core.cache import invalidate_cache
+
     objects = [
         CpuSample(
             session_id=session_id,
@@ -55,10 +57,9 @@ def ingest_cpu_samples(
         )
         for s in batch.samples
     ]
-
     db.bulk_save_objects(objects)
     db.commit()
-
+    invalidate_cache(f"flamegraph:{session_id}")
     return {"inserted": len(objects)}
 
 
@@ -70,11 +71,19 @@ def get_flamegraph(
     session_id: int,
     db: Session = Depends(get_db),
 ):
+    from app.core.cache import get_cache, set_cache
+
+    cache_key = f"flamegraph:{session_id}"
+    cached = get_cache(cache_key)
+    if cached:
+        return cached
+
     samples = (
         db.query(CpuSample)
         .filter(CpuSample.session_id == session_id)
         .all()
     )
+   
 
     root = {
         "name": "root",
@@ -106,8 +115,9 @@ def get_flamegraph(
                 for child in node["children"].values()
             ]
         }
-
-    return normalize(root)
+    result = normalize(root)
+    set_cache(cache_key, result)
+    return result
 
 @router.post("/start")
 def start(db: Session = Depends(get_db)):

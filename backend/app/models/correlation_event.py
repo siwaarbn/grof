@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, BigInteger, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, BigInteger, ForeignKey, DateTime,String
 from sqlalchemy.sql import func
 from app.database import Base
 
@@ -11,7 +11,9 @@ class CorrelationEvent(Base):
     correlation_id = Column(BigInteger, nullable=False)
 
     cpu_timestamp_ns = Column(BigInteger, nullable=False)
-    cpu_stack_hash = Column(BigInteger, nullable=False)
+  
+    cpu_function_name = Column(String, nullable=True)
+    cpu_stack = Column(String, nullable=True)
 
     gpu_kernel_id = Column(Integer, ForeignKey("gpu_events.id"), nullable=True)
 

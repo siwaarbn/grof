@@ -48,8 +48,8 @@ def get_correlated_events(
 
         # 4. Align timestamps
         results.append({
-            "cpu_function": cpu.function_name,
-            "cpu_timestamp_ns": cpu.cpu_timestamp,
+            "cpu_function": cpu.cpu_function_name,
+            "cpu_timestamp_ns": cpu.cpu_timestamp_ns ,
             "gpu_kernel": gpu.name,
             "gpu_start_ns": gpu.start_time - offset.offset_ns,
             "gpu_end_ns": gpu.end_time - offset.offset_ns,

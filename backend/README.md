@@ -195,6 +195,237 @@ Example response:
 ---------------------------------------------
 
 
+🔹 Milestone 1 — Week 4
+Session Management & Backend Integration
+🎯 Objective
 
+Introduce explicit profiling session lifecycle management and validate backend aggregation logic before frontend integration.
+
+✅ Implemented Features
+1️⃣ Session Control Endpoints
+
+Implemented dedicated session lifecycle endpoints:
+
+POST /sessions/start
+POST /sessions/stop
+
+
+Behavior:
+
+POST /start
+
+Creates a new profiling session
+
+Records start timestamp
+
+Returns a unique session_id
+
+POST /stop
+
+Finalizes the session
+
+Records end timestamp
+
+Computes session duration
+
+📌 These endpoints define clear profiling boundaries required for correlation and comparison.
+
+2️⃣ Run Management & Metadata
+
+Implemented backend support to list past profiling sessions, including:
+
+Session duration
+
+Total GPU execution time
+
+Session identifiers
+
+Metadata required for frontend selection and comparison
+
+This directly enabled:
+
+Frontend session dashboard
+
+Comparison mode in Milestone 2
+
+3️⃣ Backend Integration Testing
+
+To ensure correctness and stability, I implemented integration tests using pytest.
+
+Testing approach:
+
+Spin up a real database instance
+
+Insert synthetic CPU and GPU profiling data
+
+Execute aggregation logic
+
+Verify:
+
+Correct construction of CPU call trees
+
+Correct aggregation of metrics
+
+Stable behavior under realistic workloads
+
+📌 This validated backend aggregation logic before exposing it to the frontend.
+
+🔹 Milestone 2 — Week 1
+Correlation Data Model & Ingestion
+🎯 Objective
+
+Design and implement the backend foundations required for CPU–GPU correlation.
+
+✅ Implemented Features
+1️⃣ Correlation Data Model
+
+Extended the database schema with explicit correlation support.
+
+New entity: CorrelationEvent
+
+Conceptual structure:
+
+CorrelationEvent(
+  id,
+  session_id,
+  correlation_id,
+  cpu_timestamp,
+  cpu_stack_hash,
+  gpu_kernel_id (resolved later)
+)
+
+
+Purpose:
+
+Store CPU-side correlation points
+
+Enable later matching with GPU kernels
+
+2️⃣ GPU Event Extension
+
+Extended GpuEvent to include:
+
+correlation_id
+
+This allows GPU kernels (from CUPTI) to be linked back to CPU execution context.
+
+3️⃣ Dual Ingestion Endpoints
+
+Implemented independent ingestion paths for CPU and GPU profilers:
+
+CPU-side (eBPF):
+
+POST /sessions/{id}/cpu-correlation
+
+
+GPU-side (CUPTI):
+
+POST /sessions/{id}/gpu-events
+
+
+📌 CPU and GPU ingestion are decoupled, asynchronous, and order-independent.
+
+4️⃣ Batch Ingestion for Performance
+
+To ensure scalability, I implemented bulk insert logic:
+
+Multiple events inserted per query
+
+Avoided per-row inserts
+
+This is required to support real profiling workloads with thousands of events.
+
+🔹 Milestone 2 — Week 2
+Correlation Engine & Clock Synchronization
+🎯 Objective
+
+Automatically match CPU stacks with GPU kernels and align their timelines.
+
+✅ Implemented / Designed Features
+1️⃣ Correlation Engine (Post-Ingestion)
+
+Designed a background correlation process:
+
+For each session:
+
+Load all CorrelationEvent records
+
+Load all GpuEvent records with correlation_id
+
+Match CPU and GPU events by correlation_id
+
+Link CPU stack → GPU kernel
+
+📌 Correlation is done after ingestion to keep ingestion fast and robust.
+
+2️⃣ Correlation Output Strategy
+
+Two backend representations were prepared:
+
+Join table (CpuGpuCorrelation)
+
+Materialized view for read-heavy frontend usage
+
+The frontend was designed to consume either representation.
+
+3️⃣ Clock Synchronization (Critical)
+
+Problem:
+
+CPU timestamps (eBPF) and GPU timestamps (CUPTI) use different clocks
+
+Solution:
+
+Create a synchronization point at profiling start:
+
+cudaEventCreate(...)
+cudaEventRecord(...)
+
+
+Capture:
+
+CPU host timestamp
+
+GPU device timestamp
+
+Compute and store offset:
+
+gpu_time ≈ cpu_time + offset
+
+
+This enables correct temporal alignment of CPU and GPU timelines.
+
+4️⃣ Validation Strategy
+
+Validated correlation logic using a minimal PyTorch workload:
+
+torch.matmul(...)
+
+
+Expected:
+
+CPU stack captured via eBPF
+
+GPU kernel (sgemm) captured via CUPTI
+
+Matching correlation_id
+
+Correct time alignment
+
+This confirmed:
+
+Correlation correctness
+
+Clock synchronization accuracy
+
+🏁 Summary of My Backend Contributions
+
+✅ Session lifecycle management (M1 Week 4)
+✅ Backend aggregation validation via tests
+✅ Correlation data model (M2 Week 1)
+✅ Dual ingestion endpoints
+✅ Batch ingestion strategy
+✅ Correlation engine design
+✅ CPU–GPU clock synchronization
 
 

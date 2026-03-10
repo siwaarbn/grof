@@ -15,7 +15,7 @@ def ingest_time_sync(
     payload: TimeSyncIn,
     db: Session = Depends(get_db),
 ):
-    
+    offset_ns = payload.gpu_sync_timestamp_ns - payload.cpu_sync_timestamp_ns
     existing = (
         db.query(SessionTimeOffset)
         .filter(SessionTimeOffset.session_id == session_id)
@@ -27,7 +27,6 @@ def ingest_time_sync(
             detail="Time sync already exists for this session",
         )
 
-    offset_ns = payload.gpu_sync_timestamp_ns - payload.cpu_sync_timestamp_ns
 
     record = SessionTimeOffset(
         session_id=session_id,

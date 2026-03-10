@@ -3,11 +3,12 @@ from typing import List
 
 
 class CpuCorrelationItem(BaseModel):
+    type: str | None = None
+    timestamp: int             
+    pid: int | None = None
+    tid: int | None = None
     correlation_id: int
-    timestamp_ns: int
-    stack_hash: str
-    function_name: str | None = None
-
+    stack: List[str]  
 
 class CpuCorrelationBatch(BaseModel):
     items: List[CpuCorrelationItem]

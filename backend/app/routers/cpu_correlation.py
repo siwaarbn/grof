@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+import json  
 from app.database import get_db
 
 
@@ -22,9 +23,9 @@ def ingest_cpu_correlation(
         CorrelationEvent(
             session_id=session_id,
             correlation_id=item.correlation_id,
-            cpu_timestamp_ns=item.timestamp_ns,
-            cpu_stack_hash=item.stack_hash,
-            cpu_function_name=item.function_name,
+            cpu_timestamp_ns=item.timestamp,
+            cpu_function_name=item.stack[0] if item.stack else None,
+            cpu_stack=json.dumps(item.stack )
         )
         for item in payload.items
     ]

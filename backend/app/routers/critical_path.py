@@ -34,7 +34,8 @@ def get_critical_path(
     )
 
     path = []
-    critical_time = 0
+    critical_time_ns = 0
+    first_start_ns = None
 
     for gpu in gpu_events:
         cpu = (
@@ -47,15 +48,18 @@ def get_critical_path(
         if cpu is None:
             continue
 
-        cpu_time = cpu.cpu_timestamp
+        cpu_time = cpu.cpu_timestamp_ns
         gpu_start = gpu.start_time - offset.offset_ns
         gpu_end = gpu.end_time - offset.offset_ns
+        if first_start_ns is None:
+            first_start_ns = cpu_time
 
         path.append({
             "type": "CPU",
-            "name": cpu.function_name,
+            "name": cpu.cpu_function_name or "unknown",
             "start_ns": cpu_time,
             "end_ns": gpu_start,
+            "duration_ns": max(0,gpu_start-cpu_time),
         })
 
         path.append({
@@ -63,11 +67,18 @@ def get_critical_path(
             "name": gpu.name,
             "start_ns": gpu_start,
             "end_ns": gpu_end,
+            "duration_ns":max(0,gpu_end - gpu_start)
         })
 
-        critical_time = max(critical_time, gpu_end)
+        critical_time_ns = max(critical_time_ns, gpu_end)
+        total_ns=critical_time_ns -(first_start_ns or 0)
 
     return {
-        "critical_path_ns": critical_time,
+        "session_id": session_id,
+        "total_duration_ns": total_ns,
+        "total_duration_ms": round(total_ns / 1_000_000, 3),   
+        "critical_path_duration_ns": total_ns,
+        "critical_path_duration_ms": round(total_ns / 1_000_000, 3), 
+        "critical_path_percent": 100.0 if total_ns>0 else 0,
         "path": path,
     }
