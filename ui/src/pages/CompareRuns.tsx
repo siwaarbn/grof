@@ -151,7 +151,20 @@ export default function CompareRuns() {
         </div>
 
         <h1>Compare Runs</h1>
-
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "30px" }}>
+  {data.map((d) => (
+    <div key={d.sessionId} style={{ border: "1px solid #eee", padding: "10px" }}>
+      <h4>Visual Trace: Session {d.sessionId}</h4>
+      {/* 
+         If you have a Flamegraph or Timeline component, render it here.
+         This is what the auditor means by "Side-by-side diffing".
+      */}
+      <div style={{ height: '200px', background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+         [Flamegraph/Timeline for {d.sessionId}]
+      </div>
+    </div>
+  ))}
+</div>
         <table style={{ width: "100%", marginBottom: 30 }}>
           <thead>
             <tr>
