@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import subprocess
+import os
 from bcc import BPF
 import ctypes as ct
 import json
@@ -17,18 +19,47 @@ class CorrelationEvent(ct.Structure):
         ("stack_id", ct.c_int),
     ]
 
+API_KIND_TO_NAME = {
+    1: "cudaLaunchKernel",
+    2: "cudaMemcpyAsync",
+    3: "cudaStreamSynchronize",
+}
+
+def find_libcudart():
+    """Locate libcudart.so on the system."""
+    try:
+        path = subprocess.check_output(
+            ["bash", "-lc", "ldconfig -p | awk '/libcudart\\.so/{print $NF; exit}'"]
+        ).decode().strip()
+        if path and os.path.exists(path):
+            return path
+    except Exception:
+        pass
+    return None
+
 def get_python_stack():
     stack = traceback.extract_stack()[:-2]
-    return [f"{f.name}" for f in stack]
+    return [f.name for f in stack]
 
 b = BPF(src_file="correlation_stacks.bpf.c")
 
-b.attach_uprobe(
-    name="/home/fbg/grof/libgrof_cuda.so",
-    sym="init_grof",
-    fn_name="on_init_grof"
-)
-
+# Attach uprobes to the 3 CUDA Runtime API entry points
+libcudart = find_libcudart()
+if not libcudart:
+    print("[WARN] libcudart.so not found — uprobe attachment skipped.")
+    print("[WARN] Stack capture will not fire until CUDA runtime is available.")
+else:
+    print(f"[INFO] Using libcudart: {libcudart}")
+    for sym, fn in [
+        ("cudaLaunchKernel",      "on_cudaLaunchKernel"),
+        ("cudaMemcpyAsync",       "on_cudaMemcpyAsync"),
+        ("cudaStreamSynchronize", "on_cudaStreamSynchronize"),
+    ]:
+        try:
+            b.attach_uprobe(name=libcudart, sym=sym, fn_name=fn)
+            print(f"[INFO] Attached uprobe: {sym} -> {fn}")
+        except Exception as e:
+            print(f"[WARN] Could not attach uprobe to {sym}: {e}")
 
 stack_traces = b.get_table("stack_traces")
 
@@ -50,6 +81,7 @@ def handle_event(cpu, data, size):
         "pid": int(ev.pid),
         "tid": int(ev.tid),
         "correlation_id": int(ev.correlation_id),
+        "api": API_KIND_TO_NAME.get(ev.api_kind, "unknown"),
         "stack": python_frames + native_frames,
     }
 
@@ -57,7 +89,7 @@ def handle_event(cpu, data, size):
 
 b["correlation_events"].open_perf_buffer(handle_event)
 
-print("[INFO] Collecting correlation events")
+print(f"[INFO] Collecting correlation events with stacks -> {OUTFILE}")
 
 try:
     while True:
@@ -66,3 +98,4 @@ except KeyboardInterrupt:
     pass
 finally:
     f.close()
+    print(f"[INFO] Done. Output written to {OUTFILE}")
