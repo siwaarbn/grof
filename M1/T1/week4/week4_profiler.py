@@ -1,7 +1,8 @@
 from bcc import BPF
 from time import sleep
 import signal
-import argparse
+import json
+import time
 
 BPF_PROGRAM = r"""
 #include <uapi/linux/ptrace.h>
@@ -32,6 +33,7 @@ int on_sample(struct pt_regs *ctx) {
     return 0;
 }
 """
+
 b = BPF(text=BPF_PROGRAM)
 
 PERF_TYPE_SOFTWARE = 1
@@ -44,24 +46,74 @@ b.attach_perf_event(
     sample_freq=99,
 )
 
-def print_stacks(signum=None, frame=None):
+OUTPUT_FILE = "cpu_samples.json"
+
+def collect_stacks():
+    """Collect all stack samples into a list of records."""
+    records = []
+    counts = b.get_table("counts")
+    stack_traces = b.get_table("stack_traces")
+
+    items = sorted(
+        counts.items(),
+        key=lambda x: x[1].value,
+        reverse=True)
+
+    for (key, value) in items:
+        stack_frames = []
+        try:
+            stack = stack_traces.walk(key.user_stack_id)
+            for addr in stack:
+                sym = b.sym(addr, key.pid, show_module=False)
+                # sym may be bytes or str
+                if isinstance(sym, bytes):
+                    sym = sym.decode("utf-8", "replace")
+                stack_frames.append(sym)
+        except Exception:
+            pass
+
+        if not stack_frames:
+            continue
+
+        records.append({
+            "type": "cpu_sample",
+            "pid": key.pid,
+            "timestamp_ns": time.time_ns(),
+            "sample_count": value.value,
+            "stack": stack_frames,
+        })
+
+    return records
+
+
+def print_stacks(signum=None, frame_=None):
     print("\n--- Top stacks ---")
     counts = b.get_table("counts")
     stack_traces = b.get_table("stack_traces")
 
     items = sorted(
-	counts.items(),
-	key=lambda x: x[1].value,
-	reverse=True)
+        counts.items(),
+        key=lambda x: x[1].value,
+        reverse=True)
 
     for (key, value) in items[:10]:
         print(f"\nPID {key.pid} — {value.value} samples")
-        stack = stack_traces.walk(key.user_stack_id)
-        for addr in stack:
-            sym = b.sym(addr, key.pid, show_module=True)
-            print(f"  {sym}")
+        try:
+            stack = stack_traces.walk(key.user_stack_id)
+            for addr in stack:
+                sym = b.sym(addr, key.pid, show_module=True)
+                print(f"  {sym}")
+        except Exception:
+            pass
+
+    # --- JSON output for backend ---
+    records = collect_stacks()
+    with open(OUTPUT_FILE, "w") as f:
+        json.dump(records, f, indent=2)
+    print(f"\n[INFO] Wrote {len(records)} stack records to {OUTPUT_FILE}")
 
     exit(0)
+
 
 signal.signal(signal.SIGINT, print_stacks)
 
