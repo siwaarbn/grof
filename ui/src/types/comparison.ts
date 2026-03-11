@@ -6,6 +6,7 @@ export interface CpuFunctionMetric {
 }
 
 export interface GpuKernelMetric {
+<<<<<<< HEAD
    name: string
   totalTimeMs: number   // ⬅️ already derivable from CUPTI
   calls: number
@@ -13,6 +14,22 @@ export interface GpuKernelMetric {
   dramUtilization?: number
 }
 
+=======
+  name: string;
+
+  // number of kernel launches
+  count: number;
+
+  // accumulated execution time
+  totalTimeMs: number;
+
+  // optional (future backend metrics)
+  smEfficiency?: number;
+  dramUtilization?: number;
+}
+
+
+>>>>>>> frontend
 export interface SessionMetrics {
   sessionId: string
 
