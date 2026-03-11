@@ -1,13 +1,3 @@
-<<<<<<< HEAD
-export type RecommendationSeverity = "high" | "medium" | "low";
-
-export interface PerformanceRecommendation {
-  id: string;
-  title: string;
-  description: string;
-  severity: RecommendationSeverity;
-  score: number; // used for ranking
-=======
 // ui/src/types/performanceInsights.ts
 
 export interface GpuKernelMetric {
@@ -30,5 +20,4 @@ export interface GpuKernelMetric {
 
   /** Optional: DRAM utilization (%) */
   dramUtilization?: number;
->>>>>>> frontend
 }

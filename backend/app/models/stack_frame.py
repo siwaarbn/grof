@@ -9,9 +9,5 @@ class StackFrame(Base):
     function_name = Column(String, nullable=False)
     file_path = Column(String)
 
-<<<<<<< HEAD
    
     #samples = relationship("CpuSample", back_populates="frame")
-=======
-    samples = relationship("CpuSample", back_populates="frame")
->>>>>>> frontend

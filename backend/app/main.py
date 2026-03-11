@@ -1,14 +1,9 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-<<<<<<< HEAD
+
 from app.database import engine
 from app.models import Base
-=======
 
-from app.database import engine
-from app.models import Base  # IMPORTANT: imports all models
-
->>>>>>> 16ad9c0 (Fix backend: resolve main.py conflict, fix cpu_stack schema, add ingest.py T1/T2 pipeline)
 from app.routers.sessions import router as sessions_router
 from app.routers.cpu_correlation import router as cpu_correlation_router
 from app.routers.time_sync import router as time_sync_router
@@ -30,20 +25,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-<<<<<<< HEAD
-=======
-# --------------------
-# Routers
-# --------------------
->>>>>>> 16ad9c0 (Fix backend: resolve main.py conflict, fix cpu_stack schema, add ingest.py T1/T2 pipeline)
 app.include_router(sessions_router, prefix="/api/v1")
 app.include_router(cpu_correlation_router, prefix="/api/v1")
 app.include_router(time_sync_router, prefix="/api/v1")
 app.include_router(correlated_events_router, prefix="/api/v1")
 app.include_router(critical_path_router, prefix="/api/v1")
-<<<<<<< HEAD
 app.include_router(gpu_events_router, prefix="/api/v1")
 app.include_router(functions_router, prefix="/api/v1")
 app.include_router(timeline_router, prefix="/api/v1")
-=======
->>>>>>> 16ad9c0 (Fix backend: resolve main.py conflict, fix cpu_stack schema, add ingest.py T1/T2 pipeline)
