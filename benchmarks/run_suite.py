@@ -14,6 +14,7 @@ Usage:
 import argparse
 import json
 import os
+import resource
 import sys
 import subprocess
 import time
@@ -49,61 +50,101 @@ from macro_benchmarks.bert import benchmark_bert
 
 # Paths to T1 and T2 components
 PROJECT_ROOT = Path(__file__).parent.parent
-EBPF_SCRIPT = PROJECT_ROOT / "M1" / "T1" / "week2" / "stackwalk.py"
+# M2 T1 Week 3: Most advanced eBPF profiler with CUDA correlation + stack resolution
+EBPF_SCRIPT = PROJECT_ROOT / "M2" / "T1" / "week3" / "correlation_stacks.py"
+# Fallback to M1 T1 if M2 version not available
+EBPF_SCRIPT_FALLBACK = PROJECT_ROOT / "M1" / "T1" / "week2" / "stackwalk.py"
 CUPTI_LIB = PROJECT_ROOT / "libgrof_cuda.so"
 
 
 class ProfilerContext:
-    """Context manager for running with different profilers."""
-    
+    """
+    Context manager for running with different profilers.
+
+    M2 T3 Week 2: Extended with per-component modes for overhead attribution.
+      - baseline:   No profiling (pure baseline)
+      - grof:       Full system (eBPF + CUPTI)
+      - nsys:       NVIDIA Nsight Systems
+      - ebpf-only:  Only eBPF CPU profiler (no CUPTI GPU tracing)
+      - cupti-only: Only CUPTI GPU tracing (no eBPF CPU profiler)
+    """
+
     def __init__(self, mode: str):
         self.mode = mode
         self.ebpf_proc = None
         self.original_env = os.environ.copy()
-    
+
+    def _resolve_ebpf_script(self) -> Path:
+        """Find the best available eBPF script."""
+        if EBPF_SCRIPT.exists():
+            return EBPF_SCRIPT
+        if EBPF_SCRIPT_FALLBACK.exists():
+            return EBPF_SCRIPT_FALLBACK
+        return EBPF_SCRIPT  # will trigger "not found" warning
+
+    def _start_ebpf(self, label: str) -> None:
+        """Start eBPF profiler subprocess (requires Linux + root)."""
+        script = self._resolve_ebpf_script()
+        if script.exists() and sys.platform == "linux":
+            try:
+                self.ebpf_proc = subprocess.Popen(
+                    ["sudo", "python3", str(script)],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    cwd=str(script.parent),
+                )
+                print(f"[Mode: {label}] eBPF profiler started (PID: {self.ebpf_proc.pid})")
+                print(f"[Mode: {label}] Script: {script}")
+            except Exception as e:
+                print(f"[Mode: {label}] WARNING: eBPF failed to start: {e}")
+        else:
+            reason = "requires Linux" if sys.platform != "linux" else f"{script} not found"
+            print(f"[Mode: {label}] WARNING: eBPF not available ({reason})")
+
+    def _enable_cupti(self, label: str) -> None:
+        """Enable CUPTI GPU tracing via LD_PRELOAD."""
+        if CUPTI_LIB.exists():
+            os.environ["LD_PRELOAD"] = str(CUPTI_LIB)
+            print(f"[Mode: {label}] CUPTI enabled via LD_PRELOAD: {CUPTI_LIB}")
+        else:
+            print(f"[Mode: {label}] WARNING: {CUPTI_LIB} not found, CUPTI disabled")
+
     def __enter__(self):
         if self.mode == "baseline":
             print("[Mode: BASELINE] No profiler attached")
-            return self
-        
+
         elif self.mode == "grof":
-            # Enable CUPTI via LD_PRELOAD
-            if CUPTI_LIB.exists():
-                os.environ["LD_PRELOAD"] = str(CUPTI_LIB)
-                print(f"[Mode: GROF] CUPTI enabled via LD_PRELOAD")
-            else:
-                print(f"[Mode: GROF] WARNING: {CUPTI_LIB} not found, CUPTI disabled")
-            
-            # Start eBPF profiler (requires Linux + root)
-            if EBPF_SCRIPT.exists() and sys.platform == "linux":
-                try:
-                    self.ebpf_proc = subprocess.Popen(
-                        ["sudo", "python3", str(EBPF_SCRIPT)],
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                    )
-                    print(f"[Mode: GROF] eBPF profiler started (PID: {self.ebpf_proc.pid})")
-                except Exception as e:
-                    print(f"[Mode: GROF] WARNING: eBPF failed: {e}")
-            else:
-                print(f"[Mode: GROF] WARNING: eBPF not available (requires Linux)")
-            
-            return self
-        
+            # Full system: both CUPTI and eBPF
+            self._enable_cupti("GROF")
+            self._start_ebpf("GROF")
+
+        elif self.mode == "ebpf-only":
+            # M2 T3 Week 2: Only eBPF CPU profiler, NO CUPTI
+            print("[Mode: EBPF-ONLY] CPU profiling only (no GPU tracing)")
+            self._start_ebpf("EBPF-ONLY")
+
+        elif self.mode == "cupti-only":
+            # M2 T3 Week 2: Only CUPTI GPU tracing, NO eBPF
+            print("[Mode: CUPTI-ONLY] GPU tracing only (no CPU profiling)")
+            self._enable_cupti("CUPTI-ONLY")
+
         elif self.mode == "nsys":
             print("[Mode: NSYS] Running under Nsight Systems")
             # Note: nsys wrapping is handled externally
-            return self
-        
+
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
-        # Cleanup
+        # Cleanup eBPF subprocess
         if self.ebpf_proc:
-            self.ebpf_proc.send_signal(signal.SIGINT)
-            self.ebpf_proc.wait(timeout=5)
-            print("[Mode: GROF] eBPF profiler stopped")
-        
+            try:
+                self.ebpf_proc.send_signal(signal.SIGINT)
+                self.ebpf_proc.wait(timeout=5)
+            except (subprocess.TimeoutExpired, ProcessLookupError):
+                self.ebpf_proc.kill()
+                self.ebpf_proc.wait()
+            print(f"[Mode: {self.mode.upper()}] eBPF profiler stopped")
+
         # Restore environment
         os.environ.clear()
         os.environ.update(self.original_env)
@@ -118,23 +159,36 @@ def calculate_stats(data: List[float]) -> Dict[str, Any]:
     """Calculate mean, std, and 95% confidence interval."""
     import numpy as np
     from scipy import stats as scipy_stats
-    
+
     arr = np.array(data)
     n = len(arr)
-    
+
     if n < 2:
-        return {"n": n, "mean": float(arr[0]) if n else 0, "std": 0, 
+        return {"n": n, "mean": float(arr[0]) if n else 0, "std": 0,
                 "ci95_lower": 0, "ci95_upper": 0}
-    
+
     mean = float(np.mean(arr))
     std = float(np.std(arr, ddof=1))
     sem = scipy_stats.sem(arr)
     ci95 = sem * scipy_stats.t.ppf(0.975, n - 1)
-    
+
     return {
         "n": n, "mean": mean, "std": std,
         "ci95_lower": mean - ci95, "ci95_upper": mean + ci95,
     }
+
+
+def get_peak_memory_mb() -> float:
+    """
+    Get current process peak memory (RSS) in MB.
+    Uses resource.getrusage for in-process measurement.
+    On macOS ru_maxrss is in bytes; on Linux it is in KB.
+    """
+    usage = resource.getrusage(resource.RUSAGE_SELF)
+    if sys.platform == "darwin":
+        return usage.ru_maxrss / (1024 * 1024)  # bytes -> MB
+    else:
+        return usage.ru_maxrss / 1024  # KB -> MB
 
 
 # =============================================================================
@@ -356,37 +410,43 @@ def run_overhead_measurement(
     """
     Run benchmark with warmup and multiple iterations for overhead analysis.
     M2 T3 Week 1: Sample size N=30, warmup=3
+    M2 T3 Week 2: Added per-iteration memory tracking
     """
     config = BENCHMARK_CONFIG[benchmark_name]
     times = []
-    
+    memory_samples = []
+
     print(f"\n{'='*60}")
     print(f"OVERHEAD MEASUREMENT: {benchmark_name}")
     print(f"Mode: {mode}, Warmup: {warmup}, Iterations: {iterations}")
     print(f"{'='*60}")
-    
+
     with ProfilerContext(mode):
         # Warmup phase
         for i in range(warmup):
             print(f"  [Warmup {i+1}/{warmup}]...", end=" ", flush=True)
             t = run_single_iteration(benchmark_name, config)
             print(f"{t:.2f} ms (discarded)")
-        
+
         # Measurement phase
         for i in range(iterations):
             print(f"  [Iter {i+1}/{iterations}]...", end=" ", flush=True)
             t = run_single_iteration(benchmark_name, config)
+            mem = get_peak_memory_mb()
             times.append(t)
-            print(f"{t:.2f} ms")
-    
+            memory_samples.append(mem)
+            print(f"{t:.2f} ms | peak RSS: {mem:.1f} MB")
+
     # Calculate statistics
     stats = calculate_stats(times)
-    
+    peak_memory_mb = max(memory_samples) if memory_samples else 0.0
+
     print(f"\n--- Statistics ---")
     print(f"  Mean: {stats['mean']:.2f} ms")
     print(f"  Std:  {stats['std']:.2f} ms")
     print(f"  95% CI: [{stats['ci95_lower']:.2f}, {stats['ci95_upper']:.2f}] ms")
-    
+    print(f"  Peak Memory: {peak_memory_mb:.1f} MB")
+
     return {
         "benchmark": benchmark_name,
         "mode": mode,
@@ -394,6 +454,8 @@ def run_overhead_measurement(
         "iterations": iterations,
         "times_ms": times,
         "statistics": stats,
+        "peak_memory_mb": peak_memory_mb,
+        "memory_samples_mb": memory_samples,
     }
 
 
@@ -496,9 +558,19 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Profiling Modes (M2 T3):
-  baseline  - No profiling (pure baseline)
-  grof      - With GROF enabled (eBPF + CUPTI)
-  nsys      - With NVIDIA Nsight Systems (nsys profile)
+  baseline   - No profiling (pure baseline)
+  grof       - Full GROF (eBPF + CUPTI combined)
+  nsys       - NVIDIA Nsight Systems (nsys profile)
+  ebpf-only  - Only eBPF CPU profiler (no GPU tracing)  [M2 T3 Week 2]
+  cupti-only - Only CUPTI GPU tracing (no CPU profiling) [M2 T3 Week 2]
+
+Per-Component Overhead Analysis (Week 2):
+  Run each mode separately, then use attribution.py to compare:
+    python run_suite.py --mode=baseline  -b resnet50 -n 30
+    python run_suite.py --mode=ebpf-only -b resnet50 -n 30
+    python run_suite.py --mode=cupti-only -b resnet50 -n 30
+    python run_suite.py --mode=grof      -b resnet50 -n 30
+    python analysis/attribution.py --results-dir results/
 
 Examples:
   python run_suite.py --mode=baseline --iterations=30
@@ -523,9 +595,11 @@ Examples:
     # M2 T3 Week 1: Three-Way Runner
     parser.add_argument(
         "--mode", "-m",
-        choices=["baseline", "grof", "nsys"],
+        choices=["baseline", "grof", "nsys", "ebpf-only", "cupti-only"],
         default="baseline",
-        help="Profiling mode: baseline (no profiling), grof (GROF enabled), nsys (Nsight Systems)"
+        help="Profiling mode: baseline (no profiling), grof (full GROF), "
+             "nsys (Nsight Systems), ebpf-only (CPU profiler only), "
+             "cupti-only (GPU tracing only)"
     )
 
     parser.add_argument(
