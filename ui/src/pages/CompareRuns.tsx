@@ -70,22 +70,21 @@ export default function CompareRuns() {
               fetchCriticalPath(String(id)),
             ]);
 
-           
-            const metricsInput = {
-              flamegraph,
-              criticalPath,
-              cpu_samples: [], 
-              gpu_events: [], 
+            // cpu_samples and gpu_events are empty: backend GET endpoints
+            // are not yet available (see UPDATE-M2-siwar.md §5).
+            const metricsInput: RawSession = {
+              id: String(id),
+              start_time: (flamegraph as unknown as Record<string, number>).start_time ?? 0,
+              end_time: (flamegraph as unknown as Record<string, number>).end_time ?? 0,
+              cpu_samples: [],
+              gpu_events: [],
             };
 
-            const metrics = aggregateSessionMetrics(
-              metricsInput as unknown as RawSession
-            );
+            (metricsInput as unknown as Record<string, unknown>).flamegraph = flamegraph;
+            (metricsInput as unknown as Record<string, unknown>).criticalPath = criticalPath;
 
-            return {
-              sessionId: id,
-              metrics,
-            };
+            const metrics = aggregateSessionMetrics(metricsInput);
+            return { sessionId: id, metrics };
           })
         );
 
@@ -99,21 +98,23 @@ export default function CompareRuns() {
     }
 
     load();
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [sessionIds]);
 
   /* ================= RENDER ================= */
 
   if (loading) {
-    return <div style={{ padding: 20 }}>Loading comparison…</div>;
+    return (
+      <div style={{ padding: 40, textAlign: "center", color: "#888" }}>
+        Loading comparison…
+      </div>
+    );
   }
 
   if (error) {
     return (
       <div style={{ padding: 20 }}>
-        <p style={{ color: "red" }}>{error}</p>
+        <p style={{ color: "#e74c3c" }}>{error}</p>
         <button onClick={() => navigate("/")}>← Back</button>
       </div>
     );
@@ -122,87 +123,204 @@ export default function CompareRuns() {
   if (data.length < 2) {
     return (
       <div style={{ padding: 20 }}>
-        <p>Select at least two sessions.</p>
-        <button onClick={() => navigate("/")}>← Back</button>
+        <p style={{ color: "#888" }}>Select at least two sessions to compare.</p>
+        <button onClick={() => navigate("/")}>← Back to Dashboard</button>
       </div>
     );
   }
 
-  return (
-    <div style={{ display: "flex" }}>
-      <div ref={reportRef} style={{ flex: 1, padding: 20 }}>
-        <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-          <button onClick={() => navigate("/")}>← Back</button>
+  const [runA, runB] = data;
 
-          <button
-            onClick={() => {
-              if (reportRef.current) {
-                exportElementToPdf(
-                  reportRef.current,
-                  `grof-performance-report-${data
-                    .map((d) => d.sessionId)
-                    .join("-")}.pdf`
-                );
-              }
+  return (
+    <div style={{ padding: 20, maxWidth: 1400, margin: "0 auto" }}>
+
+      {/* ── Toolbar (outside report so it's not in the PDF) ── */}
+      <div style={{ display: "flex", gap: 12, marginBottom: 24, alignItems: "center" }}>
+        <button
+          onClick={() => navigate("/")}
+          style={{
+            padding: "8px 16px",
+            background: "transparent",
+            color: "#646cff",
+            border: "1px solid #646cff",
+            borderRadius: "6px",
+            cursor: "pointer",
+          }}
+        >
+          ← Back
+        </button>
+
+        <button
+          onClick={() => {
+            if (reportRef.current) {
+              exportElementToPdf(
+                reportRef.current,
+                `grof-compare-${data.map((d) => d.sessionId).join("-")}.pdf`
+              );
+            }
+          }}
+          style={{
+            padding: "8px 16px",
+            background: "#2ecc71",
+            color: "#fff",
+            border: "none",
+            borderRadius: "6px",
+            cursor: "pointer",
+            fontWeight: "600",
+          }}
+        >
+          📄 Export PDF Report
+        </button>
+      </div>
+
+      {/* ── Printable report area ── */}
+      <div ref={reportRef}>
+        <h1 style={{ marginBottom: 8 }}>Compare Runs</h1>
+        <p style={{ color: "#888", marginBottom: 28 }}>
+          Session {runA.sessionId} vs Session {runB.sessionId}
+        </p>
+
+        {/* ── Side-by-side visual placeholder ── */}
+        <section style={{ marginBottom: 36 }}>
+          <h2 style={{ marginBottom: 14 }}>📈 Side-by-Side Trace View</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            {data.map((d) => (
+              <div
+                key={d.sessionId}
+                style={{
+                  border: "1px solid #333",
+                  borderRadius: 8,
+                  padding: 16,
+                  background: "#1e1e1e",
+                }}
+              >
+                <h4 style={{ margin: "0 0 12px 0", color: "#646cff" }}>
+                  Session {d.sessionId}
+                </h4>
+                <div
+                  style={{
+                    height: 160,
+                    background: "#2a2a2a",
+                    borderRadius: 6,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#555",
+                    fontSize: 13,
+                  }}
+                >
+                  Flamegraph / Timeline — available in detail view
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ── Metrics diff table ── */}
+        <section style={{ marginBottom: 36 }}>
+          <h2 style={{ marginBottom: 14 }}>📊 Metrics Comparison</h2>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              background: "#1e1e1e",
+              borderRadius: 8,
+              overflow: "hidden",
             }}
           >
-            Export PDF Report
-          </button>
-        </div>
+            <thead>
+              <tr style={{ background: "#2a2a2a" }}>
+                <th style={thStyle}>Metric</th>
+                <th style={thStyle}>Session {runA.sessionId} (A)</th>
+                <th style={thStyle}>Session {runB.sessionId} (B)</th>
+                <th style={thStyle}>Δ (B − A)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <MetricRowWithDelta
+                label="Total Time (ms)"
+                values={data.map((d) => d.metrics.totalTimeMs)}
+                lowerIsBetter
+              />
+              <MetricRowWithDelta
+                label="GPU Active Time (ms)"
+                values={data.map((d) => d.metrics.gpuTotalTimeMs)}
+                lowerIsBetter={false}
+              />
+              <MetricRowWithDelta
+                label="GPU Idle Time (ms)"
+                values={data.map((d) => d.metrics.gpuIdleTimeMs)}
+                lowerIsBetter
+              />
+              <MetricRowWithDelta
+                label="Memcpy Time (ms)"
+                values={data.map((d) => d.metrics.memcpyTimeMs)}
+                lowerIsBetter
+              />
+              <MetricRowWithDelta
+                label="CPU Active Time (ms)"
+                values={data.map((d) => d.metrics.cpuTotalTimeMs)}
+                lowerIsBetter
+              />
+            </tbody>
+          </table>
+        </section>
 
-        <h1>Compare Runs</h1>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "30px" }}>
-  {data.map((d) => (
-    <div key={d.sessionId} style={{ border: "1px solid #eee", padding: "10px" }}>
-      <h4>Visual Trace: Session {d.sessionId}</h4>
-      {/* 
-         If you have a Flamegraph or Timeline component, render it here.
-         This is what the auditor means by "Side-by-side diffing".
-      */}
-      <div style={{ height: '200px', background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-         [Flamegraph/Timeline for {d.sessionId}]
-      </div>
-    </div>
-  ))}
-</div>
-        <table style={{ width: "100%", marginBottom: 30 }}>
-          <thead>
-            <tr>
-              <th>Metric</th>
-              {data.map((d) => (
-                <th key={d.sessionId}>Session {d.sessionId}</th>
-              ))}
-              <th>Δ</th>
-            </tr>
-          </thead>
-          <tbody>
-            <MetricRowWithDelta
-              label="Total GPU Time (ms)"
-              values={data.map((d) => d.metrics.gpuTotalTimeMs)}
-              lowerIsBetter
-            />
-            <MetricRowWithDelta
-              label="Memcpy Time (ms)"
-              values={data.map((d) => d.metrics.memcpyTimeMs)}
-              lowerIsBetter
-            />
-          </tbody>
-        </table>
-
-        {data.map((d) => (
-          <div key={d.sessionId}>
-            <h3>Session {d.sessionId}</h3>
-            <KernelAnalysisTable kernels={d.metrics.gpuKernels} />
+        {/* ── Kernel analysis side-by-side ── */}
+        <section style={{ marginBottom: 36 }}>
+          <h2 style={{ marginBottom: 14 }}>🔬 Kernel Analysis (Side-by-Side)</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            {data.map((d) => (
+              <div
+                key={d.sessionId}
+                style={{
+                  background: "#1e1e1e",
+                  borderRadius: 8,
+                  padding: 16,
+                  border: "1px solid #333",
+                }}
+              >
+                <h3 style={{ margin: "0 0 12px 0", color: "#646cff", fontSize: 14 }}>
+                  Session {d.sessionId}
+                </h3>
+                <KernelAnalysisTable kernels={d.metrics.gpuKernels} />
+                {d.metrics.gpuKernels.length === 0 && (
+                  <p style={{ color: "#555", fontSize: 13 }}>No kernel data available yet.</p>
+                )}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </section>
 
-      <RecommendationsPanel metrics={data[0].metrics} />
+        {/* ── Performance Insights side-by-side ── */}
+        <section>
+          <h2 style={{ marginBottom: 14 }}>💡 Performance Insights</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            {data.map((d) => (
+              <RecommendationsPanel
+                key={d.sessionId}
+                metrics={d.metrics}
+                sessionLabel={`Session ${d.sessionId}`}
+              />
+            ))}
+          </div>
+        </section>
+      </div>
     </div>
   );
 }
 
-/* ================= HELPER ================= */
+/* ================= STYLES ================= */
+
+const thStyle: React.CSSProperties = {
+  textAlign: "left",
+  padding: "12px 16px",
+  fontWeight: 600,
+  fontSize: 13,
+  color: "#aaa",
+};
+
+/* ================= HELPER COMPONENT ================= */
 
 function MetricRowWithDelta({
   label,
@@ -219,14 +337,18 @@ function MetricRowWithDelta({
   const delta = b - a;
   const percent = a !== 0 ? (delta / a) * 100 : 0;
   const improved = lowerIsBetter ? delta < 0 : delta > 0;
+  const unchanged = delta === 0;
+
+  const deltaColor = unchanged ? "#888" : improved ? "#2ecc71" : "#e74c3c";
+  const deltaSymbol = unchanged ? "—" : improved ? "✓" : "✗";
 
   return (
-    <tr>
-      <td>{label}</td>
-      <td>{Math.round(a)}</td>
-      <td>{Math.round(b)}</td>
-      <td style={{ color: improved ? "green" : "red" }}>
-        {delta.toFixed(1)} ({percent.toFixed(1)}%)
+    <tr style={{ borderTop: "1px solid #2a2a2a" }}>
+      <td style={{ padding: "10px 16px", color: "#ddd" }}>{label}</td>
+      <td style={{ padding: "10px 16px", fontFamily: "monospace" }}>{Math.round(a)} ms</td>
+      <td style={{ padding: "10px 16px", fontFamily: "monospace" }}>{Math.round(b)} ms</td>
+      <td style={{ padding: "10px 16px", fontFamily: "monospace", color: deltaColor, fontWeight: 600 }}>
+        {delta > 0 ? "+" : ""}{delta.toFixed(1)} ms ({percent.toFixed(1)}%) {deltaSymbol}
       </td>
     </tr>
   );

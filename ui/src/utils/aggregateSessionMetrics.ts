@@ -9,7 +9,7 @@ export function aggregateSessionMetrics(
   rawSession: RawSession
 ): SessionMetrics {
   // Fallback for ID if not present in rawSession
-  const sessionId = rawSession.id ?? 0;
+  const sessionId: string = rawSession.id ?? "0";
 
   // Calculate total wall-clock time
   const totalTimeMs = rawSession.end_time - rawSession.start_time;
