@@ -1,14 +1,23 @@
 // @ts-nocheck
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useContext } from "react";
 import { flamegraph } from "d3-flame-graph";
 import "d3-flame-graph/dist/d3-flamegraph.css";
 import * as d3 from "d3";
-import { useCorrelation } from "../context/CorrelationContext";
+import { CorrelationContext } from "../context/CorrelationContext";
 
 interface FlamegraphProps {
     data: any;
     width?: number;
     height?: number;
+}
+
+// Safe hook: returns a dummy state when used outside CorrelationProvider (e.g. Dashboard preview)
+function useSafeCorrelation() {
+    const ctx = useContext(CorrelationContext);
+    if (!ctx) {
+        return { selection: { type: null, nodeId: null, relatedIds: [] } };
+    }
+    return ctx.state;
 }
 
 const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
@@ -19,15 +28,13 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [chartWidth, setChartWidth] = useState(0);
 
-    // Week 2/4: Integration with Correlation Engine
-    const { state } = useCorrelation();
-    const { selection } = state;
+    const { selection } = useSafeCorrelation();
 
     useEffect(() => {
         const updateWidth = () => {
             if (containerRef.current) {
-                const width = containerRef.current.offsetWidth;
-                setChartWidth(width > 0 ? width : 1200);
+                const w = containerRef.current.offsetWidth;
+                setChartWidth(w > 0 ? w : 1200);
             }
         };
 
@@ -57,7 +64,6 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
             .inverted(false)
             .color((d: any) => {
                 const name = d?.data?.name || "";
-                // Audit Requirement: Warm colors for Python, Cool for C++/CUDA
                 if (name.includes("[Python]")) return "#e74c3c";
                 if (name.includes("[C++]")) return "#3498db";
                 if (name.includes("[CUDA]")) return "#9b59b6";
@@ -91,14 +97,10 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
         chartContainer
             .selectAll("rect")
             .on("mouseover", function (event: any) {
-                const rect = d3.select(this);
-                const rectData = rect.datum() as any;
-
+                const rectData = d3.select(this).datum() as any;
                 if (rectData?.data) {
                     tooltip
-                        .html(
-                            `<strong>${rectData.data.name}</strong><br/>Time: ${rectData.data.value}ms`
-                        )
+                        .html(`<strong>${rectData.data.name}</strong><br/>Time: ${rectData.data.value}ms`)
                         .style("visibility", "visible");
                 }
             })
@@ -119,7 +121,7 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
         };
     }, [data, chartWidth, height]);
 
-    // Combined Search + Correlation Filter
+    // Search + Correlation highlight
     useEffect(() => {
         if (!chartRef.current) return;
 
@@ -129,39 +131,36 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
                 const rectData = d3.select(this).datum() as any;
                 const name = rectData?.data?.name || "";
                 const nodeId = rectData?.data?.id;
-                
-                // Check Search Match
+
                 const matchesSearch = !searchTerm || name.toLowerCase().includes(searchTerm.toLowerCase());
-                
-                // Check Correlation Match (If a GPU event is clicked)
+
                 let matchesCorrelation = true;
-                if (selection.type === 'timeline' && selection.relatedIds.length > 0) {
+                if (selection.type === "timeline" && selection.relatedIds.length > 0) {
                     matchesCorrelation = selection.relatedIds.includes(nodeId);
                 }
 
-                return (matchesSearch && matchesCorrelation) ? 1 : 0.2;
+                return matchesSearch && matchesCorrelation ? 1 : 0.2;
             })
-            // Highlight correlation with a gold stroke if selected
-            .style("stroke", function() {
+            .style("stroke", function () {
                 const rectData = d3.select(this).datum() as any;
-                if (selection.type === 'timeline' && selection.relatedIds.includes(rectData?.data?.id)) {
+                if (selection.type === "timeline" && selection.relatedIds.includes(rectData?.data?.id)) {
                     return "#ffd700";
                 }
                 return "none";
             })
-            .style("stroke-width", function() {
+            .style("stroke-width", function () {
                 const rectData = d3.select(this).datum() as any;
-                return (selection.type === 'timeline' && selection.relatedIds.includes(rectData?.data?.id)) ? "2px" : "0px";
+                return selection.type === "timeline" && selection.relatedIds.includes(rectData?.data?.id)
+                    ? "2px"
+                    : "0px";
             });
-
     }, [searchTerm, selection]);
 
     const handleReset = () => {
         setSearchTerm("");
-        if (chartInstanceRef.current && chartInstanceRef.current.resetZoom) {
+        if (chartInstanceRef.current?.resetZoom) {
             chartInstanceRef.current.resetZoom();
         }
-
         if (chartRef.current) {
             d3.select(chartRef.current).selectAll("rect").style("opacity", 1).style("stroke", "none");
         }
