@@ -1,0 +1,3 @@
+{"type": "correlation", "timestamp": 1770139286570000000, "pid": 12345, "tid": 12345, "correlation_id": 1, "api": "cudaLaunchKernel", "stack": ["train_epoch", "forward_pass", "torch.nn.functional.linear", "torch._C._nn.linear", "cudaLaunchKernel"]}
+{"type": "correlation", "timestamp": 1770139286571000000, "pid": 12345, "tid": 12345, "correlation_id": 2, "api": "cudaLaunchKernel", "stack": ["train_epoch", "forward_pass", "torch.nn.init.normal_", "torch._C._VariableFunctions.normal_", "cudaLaunchKernel"]}
+{"type": "correlation", "timestamp": 1770139286572000000, "pid": 12345, "tid": 12345, "correlation_id": 3, "api": "cudaLaunchKernel", "stack": ["train_epoch", "forward_pass", "torch.nn.functional.linear", "torch.matmul", "cudaLaunchKernel"]}

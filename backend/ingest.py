@@ -60,10 +60,12 @@ def map_cpu_records(raw_records):
             continue
         stack = rec.get("stack", [])
         items.append({
+            "type": rec.get("type"),
+            "timestamp": int(rec["timestamp"]),
+            "pid": rec.get("pid"),
+            "tid": rec.get("tid"),
             "correlation_id": int(rec["correlation_id"]),
-            "timestamp_ns": int(rec["timestamp"]),
-            "stack_hash": json.dumps(stack),        # store list as JSON string
-            "function_name": stack[0] if stack else None,
+            "stack": stack,
         })
     return items
 
@@ -76,22 +78,17 @@ def map_gpu_records(raw_records):
         if ph != "X":   # only complete events
             continue
 
-        ts_us = rec.get("ts", 0)
-        dur_us = rec.get("dur", 0)
-
-        # T2 uses microseconds; backend expects nanoseconds
-        start_ns = int(ts_us * 1000)
-        end_ns   = int((ts_us + dur_us) * 1000)
-
         args = rec.get("args", {})
         correlation_id = args.get("correlationId") or args.get("correlation_id")
 
         items.append({
             "name": rec.get("name", "unknown"),
-            "start_time": start_ns,
-            "end_time": end_ns,
-            "stream_id": rec.get("tid"),
-            "correlation_id": int(correlation_id) if correlation_id is not None else None,
+            "ph": rec.get("ph"),
+            "ts": rec.get("ts", 0),
+            "dur": rec.get("dur", 0),
+            "pid": rec.get("pid"),
+            "tid": rec.get("tid"),
+            "args": {"correlationId": int(correlation_id)} if correlation_id is not None else None,
         })
     return items
 
@@ -151,7 +148,7 @@ def main():
         for i in range(batches):
             batch = items[i * args.batch_size : (i + 1) * args.batch_size]
             post_batch(args.api, args.session_id, "gpu-events",
-                       batch, args.dry_run)
+                       {"events": batch}, args.dry_run)
 
     print("\n[INFO] Ingestion complete.")
 
