@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import subprocess
 import os
+import subprocess
 from bcc import BPF
 import ctypes as ct
 import json
@@ -25,11 +25,19 @@ API_KIND_TO_NAME = {
     3: "cudaStreamSynchronize",
 }
 
-def find_libcudart():
-    """Locate libcudart.so on the system."""
+def find_libgrof():
+    candidates = [
+        "./libgrof_cuda.so",
+        "../libgrof_cuda.so",
+        "../../libgrof_cuda.so",
+        "../../../libgrof_cuda.so",
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            return os.path.abspath(p)
     try:
         path = subprocess.check_output(
-            ["bash", "-lc", "ldconfig -p | awk '/libcudart\\.so/{print $NF; exit}'"]
+            ["bash", "-lc", "ldconfig -p | awk '/libgrof_cuda.so/{print $NF; exit}'"]
         ).decode().strip()
         if path and os.path.exists(path):
             return path
@@ -43,23 +51,15 @@ def get_python_stack():
 
 b = BPF(src_file="correlation_stacks.bpf.c")
 
-# Attach uprobes to the 3 CUDA Runtime API entry points
-libcudart = find_libcudart()
-if not libcudart:
-    print("[WARN] libcudart.so not found — uprobe attachment skipped.")
-    print("[WARN] Stack capture will not fire until CUDA runtime is available.")
-else:
-    print(f"[INFO] Using libcudart: {libcudart}")
-    for sym, fn in [
-        ("cudaLaunchKernel",      "on_cudaLaunchKernel"),
-        ("cudaMemcpyAsync",       "on_cudaMemcpyAsync"),
-        ("cudaStreamSynchronize", "on_cudaStreamSynchronize"),
-    ]:
-        try:
-            b.attach_uprobe(name=libcudart, sym=sym, fn_name=fn)
-            print(f"[INFO] Attached uprobe: {sym} -> {fn}")
-        except Exception as e:
-            print(f"[WARN] Could not attach uprobe to {sym}: {e}")
+libgrof = find_libgrof()
+if not libgrof:
+    raise RuntimeError("libgrof_cuda.so not found")
+
+b.attach_uprobe(
+    name=libgrof,
+    sym="init_grof",
+    fn_name="on_init_grof"
+)
 
 stack_traces = b.get_table("stack_traces")
 
@@ -73,7 +73,7 @@ def handle_event(cpu, data, size):
         stack = stack_traces.walk(ev.stack_id)
         native_frames = resolve_stack(ev.pid, stack)
 
-    python_frames = get_python_stack()
+    api = API_KIND_TO_NAME.get(ev.api_kind, "unknown")
 
     record = {
         "type": "correlation",
@@ -81,8 +81,8 @@ def handle_event(cpu, data, size):
         "pid": int(ev.pid),
         "tid": int(ev.tid),
         "correlation_id": int(ev.correlation_id),
-        "api": API_KIND_TO_NAME.get(ev.api_kind, "unknown"),
-        "stack": python_frames + native_frames,
+        "api": api,
+        "stack": native_frames + [api]
     }
 
     f.write(json.dumps(record) + "\n")
@@ -98,4 +98,3 @@ except KeyboardInterrupt:
     pass
 finally:
     f.close()
-    print(f"[INFO] Done. Output written to {OUTFILE}")
