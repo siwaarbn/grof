@@ -1,13 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import type { RawSession } from "../types/rawSession";
 
 /* ===== API ===== */
-import { fetchFlamegraph } from "../api/flamegraph";
-import { fetchCriticalPath } from "../api/criticalPath";
+import { fetchSessionMetrics } from "../api/sessions";
 
 /* ===== UTILS ===== */
-import { aggregateSessionMetrics } from "../utils/aggregateSessionMetrics";
 import { exportElementToPdf } from "../utils/exportPdf";
 
 /* ===== TYPES ===== */
@@ -65,25 +62,7 @@ export default function CompareRuns() {
 
         const results = await Promise.all(
           sessionIds.map(async (id) => {
-            const [flamegraph, criticalPath] = await Promise.all([
-              fetchFlamegraph(String(id)),
-              fetchCriticalPath(String(id)),
-            ]);
-
-            // cpu_samples and gpu_events are empty: backend GET endpoints
-            // are not yet available (see UPDATE-M2-siwar.md §5).
-            const metricsInput: RawSession = {
-              id: String(id),
-              start_time: (flamegraph as unknown as Record<string, number>).start_time ?? 0,
-              end_time: (flamegraph as unknown as Record<string, number>).end_time ?? 0,
-              cpu_samples: [],
-              gpu_events: [],
-            };
-
-            (metricsInput as unknown as Record<string, unknown>).flamegraph = flamegraph;
-            (metricsInput as unknown as Record<string, unknown>).criticalPath = criticalPath;
-
-            const metrics = aggregateSessionMetrics(metricsInput);
+            const metrics = await fetchSessionMetrics(String(id));
             return { sessionId: id, metrics };
           })
         );
@@ -134,7 +113,7 @@ export default function CompareRuns() {
   return (
     <div style={{ padding: 20, maxWidth: 1400, margin: "0 auto" }}>
 
-      {/* ── Toolbar (outside report so it's not in the PDF) ── */}
+      {/* ── Toolbar ── */}
       <div style={{ display: "flex", gap: 12, marginBottom: 24, alignItems: "center" }}>
         <button
           onClick={() => navigate("/")}
@@ -340,7 +319,7 @@ function MetricRowWithDelta({
   const unchanged = delta === 0;
 
   const deltaColor = unchanged ? "#888" : improved ? "#2ecc71" : "#e74c3c";
-  const deltaSymbol = unchanged ? "—" : improved ? "✓" : "✗";
+  const deltaSymbol = unchanged ? "—" : improved ? "✔" : "✗";
 
   return (
     <tr style={{ borderTop: "1px solid #2a2a2a" }}>

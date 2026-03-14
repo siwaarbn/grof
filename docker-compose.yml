@@ -15,7 +15,6 @@ services:
     container_name: grof-redis
     ports:
       - "6379:6379"
-
   api:
     build:
       context: ./backend
@@ -25,12 +24,14 @@ services:
       - redis
     environment:
       DATABASE_URL: postgresql+psycopg2://admin:admin@db:5432/grof
+      API_BASE_URL: http://localhost:8000
+      GROF_DATA_DIR: /data
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
-
+      - .:/data:ro
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
   pgadmin:
     image: dpage/pgadmin4
     container_name: grof-pgadmin
@@ -41,6 +42,5 @@ services:
       - "5050:80"
     depends_on:
       - db
-
 volumes:
   db_data:

@@ -173,8 +173,36 @@ def start(db: Session = Depends(get_db)):
 
 
 @router.post("/stop/{session_id}")
-def stop(session_id: int, db: Session = Depends(get_db)):
+def stop(
+    session_id: int,
+    db: Session = Depends(get_db),
+    cpu_file: str = None,
+    gpu_file: str = None,
+):
+    """
+    Stop a session and automatically ingest profiling data.
+
+    Optional query params:
+      ?cpu_file=/path/to/cpu_correlation_with_stack.json
+      ?gpu_file=/path/to/gpu_trace.json
+
+    If not provided, the backend auto-detects files in /tmp/grof/ and the repo root.
+    """
+    import threading
+    from app.services.session_services import _run_ingest
+
     session = stop_session(db, session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    return {"status": "stopped"}
+
+    # If explicit paths given, override auto-detection
+    if cpu_file or gpu_file:
+        thread = threading.Thread(
+            target=_run_ingest,
+            args=(session_id, cpu_file, gpu_file),
+            daemon=True,
+        )
+        thread.start()
+        return {"status": "stopped", "ingestion": "started with provided files"}
+
+    return {"status": "stopped", "ingestion": "auto-detecting files"}
