@@ -9,9 +9,10 @@ const td: React.CSSProperties = { padding: "6px 10px" };
 
 export default function KernelAnalysisTable({ kernels }: Props) {
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-      <thead>
-        <tr>
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: 0, tableLayout: "fixed" }}>
+        <thead>
+          <tr style={{ borderBottom: "1px solid #2D313A" }}>
           <th style={th}>Kernel</th>
           <th style={th}>Calls</th>
           <th style={th}>Total Time (ms)</th>
@@ -22,9 +23,14 @@ export default function KernelAnalysisTable({ kernels }: Props) {
 
       <tbody>
         {kernels.map((kernel) => (
-          <tr key={kernel.name}>
-            <td style={td}>{kernel.name}</td>
-            <td style={td}>{kernel.count}</td>
+          <tr key={kernel.name} style={{ borderBottom: "1px solid #2D313A" }}>
+            <td 
+              style={{ ...td, maxWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "40%", color: "#E2E8F0" }} 
+              title={kernel.name}
+            >
+              <span style={{ cursor: "default" }}>{kernel.name}</span>
+            </td>
+            <td style={{...td, width: "15%", color: "#94A3B8"}}>{kernel.count}</td>
             <td style={td}>{kernel.totalTimeMs.toFixed(2)}</td>
 
             <td style={td}>
@@ -42,5 +48,6 @@ export default function KernelAnalysisTable({ kernels }: Props) {
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

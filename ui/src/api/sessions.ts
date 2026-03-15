@@ -1,6 +1,6 @@
 import { api } from "./client";
 import type { Session } from "../types/session";
-import type { RawSession, GpuKernelEvent } from "../types/rawSession";
+import type { RawSession } from "../types/rawSession";
 import type { SessionMetrics } from "../types/comparison";
 
 /**

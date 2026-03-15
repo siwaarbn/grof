@@ -16,6 +16,7 @@ import CriticalPathToggle from "../components/CriticalPathToggle";
 import { useSession } from "../hooks/useSession";
 // TODO: replace when backend exposes /sessions/:id/critical-path
 import { mockCriticalPath, mockCriticalPathInsight, getCriticalPathEventIds } from "../data/mockCriticalPath";
+import { useCriticalPath } from "../hooks/useCriticalPath";
 
 /* ── Data mappers ─────────────────────────────────────────────────────────── */
 
@@ -29,9 +30,12 @@ function buildFlamegraphData(
 ) {
   const sorted = [...cpuFunctions].sort((a, b) => b.totalTimeMs - a.totalTimeMs);
   return {
+    id: "root",
     name: "root",
-    value: totalTimeMs,
-    children: sorted.map((fn) => ({
+    value: totalTimeMs || 1,
+    color: "#e74c3c", // base color
+    children: sorted.map((fn, idx) => ({
+      id: `root-${idx}`,
       name: fn.name,
       value: fn.totalTimeMs,
       children: [],
@@ -53,7 +57,7 @@ function buildTimelineEvents(
   const events: Array<{
     id: string;
     name: string;
-    type: string;
+    type: "CUDA" | "Memory" | "Kernel";
     startTime: number;
     endTime: number;
     stream: number;
@@ -105,7 +109,12 @@ function CorrelatedRunDetailsInner() {
   const { selection } = state;
 
   const [showCriticalPath, setShowCriticalPath] = useState(false);
-  const criticalPathEventIds = getCriticalPathEventIds();
+  
+  // Real critical path data via hook
+  const { data: cpData, loading: cpLoading, error: cpError } = useCriticalPath(id);
+  const criticalPathInsight = cpData?.insight ?? mockCriticalPathInsight;
+  const criticalPathEvents = cpData?.criticalPath ?? mockCriticalPath;
+  const criticalPathEventIds = cpData?.eventIds ?? getCriticalPathEventIds();
 
   // ── Real data via hook ──────────────────────────────────────────────────
   const { data: metrics, loading, error } = useSession(id);
@@ -268,8 +277,14 @@ function CorrelatedRunDetailsInner() {
       </div>
 
       {/* Critical Path — still mock until backend implements /sessions/:id/critical-path */}
-      {showCriticalPath && (
-        <CriticalPathInsight criticalPath={mockCriticalPath} insight={mockCriticalPathInsight} />
+      {showCriticalPath && cpLoading && (
+        <div style={{ padding: "20px", color: "#888" }}>Loading critical path data...</div>
+      )}
+      {showCriticalPath && cpError && (
+        <div style={{ padding: "20px", color: "#e74c3c" }}>Failed to load critical path data: {cpError}</div>
+      )}
+      {showCriticalPath && !cpLoading && !cpError && (
+        <CriticalPathInsight criticalPath={criticalPathEvents} insight={criticalPathInsight} />
       )}
 
       {/* Main Visualization Container */}

@@ -40,9 +40,11 @@ function buildFlamegraphData(
 ) {
   const sorted = [...cpuFunctions].sort((a, b) => b.totalTimeMs - a.totalTimeMs);
   return {
+    id: "root",
     name: "root",
     value: totalTimeMs || 1,
-    children: sorted.map((fn) => ({
+    children: sorted.map((fn, idx) => ({
+      id: `child-${idx}`,
       name: fn.name,
       value: fn.totalTimeMs,
       children: [],
@@ -57,7 +59,7 @@ function buildTimelineEvents(
   const events: Array<{
     id: string;
     name: string;
-    type: string;
+    type: "CUDA" | "Memory" | "Kernel";
     startTime: number;
     endTime: number;
     stream: number;
@@ -97,6 +99,23 @@ function buildTimelineEvents(
   return events;
 }
 
+// --- PREMIUM THEME CONSTANTS ---
+const theme = {
+  bgApp: "#090A0C",
+  bgSurface: "#13151A",
+  bgSurfaceHighlight: "#1A1C23",
+  border: "#262933",
+  textPrimary: "#F8FAFC",
+  textSecondary: "#94A3B8",
+  accent: "#6366F1",
+  success: "#10B981",
+  danger: "#EF4444",
+  tableHead: "#101115",
+  radius: "12px",
+  shadow: "0 4px 20px rgba(0,0,0,0.5)",
+  glow: "0 0 15px rgba(99, 102, 241, 0.15)"
+};
+
 /* ================= SESSION PANEL ================= */
 
 function SessionPanel({ sessionId, metrics }: { sessionId: number; metrics: SessionMetrics }) {
@@ -105,42 +124,57 @@ function SessionPanel({ sessionId, metrics }: { sessionId: number; metrics: Sess
 
   return (
     <CorrelationProvider>
-      <div style={{ border: "1px solid #333", borderRadius: 8, padding: 16, background: "#1e1e1e" }}>
-        <h4 style={{ margin: "0 0 16px 0", color: "#646cff", fontSize: 15 }}>
-          Session {sessionId}
-        </h4>
+      <div style={{ 
+        border: `1px solid ${theme.border}`, 
+        borderRadius: theme.radius, 
+        padding: 24, 
+        background: theme.bgSurface,
+        boxShadow: theme.shadow,
+        flex: "1 1 0",
+        minWidth: 0
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <div style={{ background: "rgba(99,102,241,0.1)", color: theme.accent, padding: "4px 10px", borderRadius: "16px", fontSize: 13, fontWeight: 600 }}>
+            Session {sessionId}
+          </div>
+          <h4 style={{ margin: 0, color: theme.textPrimary, fontSize: 16, fontWeight: 500 }}>Performance Trace</h4>
+        </div>
 
         {/* Flamegraph */}
-        <div style={{ marginBottom: 20 }}>
-          <h5 style={{ margin: "0 0 8px 0", color: "#888", fontSize: 12, textTransform: "uppercase" }}>
+        <div style={{ marginBottom: 24 }}>
+          <h5 style={{ margin: "0 0 12px 0", color: theme.textSecondary, fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>
             CPU Flamegraph
           </h5>
-          {metrics.cpuFunctions.length > 0 ? (
-            <CorrelatedFlamegraph data={flamegraphData} height={250} />
-          ) : (
-            <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "center", color: "#555", fontSize: 13, background: "#2a2a2a", borderRadius: 6 }}>
-              No CPU data
-            </div>
-          )}
+          <div style={{ background: theme.bgSurfaceHighlight, padding: "2px", borderRadius: "8px", border: `1px solid ${theme.border}`, overflowX: "auto" }}>
+            {metrics.cpuFunctions.length > 0 ? (
+              <CorrelatedFlamegraph data={flamegraphData} height={250} />
+            ) : (
+              <div style={{ height: 100, display: "flex", alignItems: "center", justifyContent: "center", color: theme.textSecondary, fontSize: 13 }}>
+                No CPU trace data available.
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Timeline */}
         <div>
-          <h5 style={{ margin: "0 0 8px 0", color: "#888", fontSize: 12, textTransform: "uppercase" }}>
+          <h5 style={{ margin: "0 0 12px 0", color: theme.textSecondary, fontSize: 11, fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>
             GPU Timeline
           </h5>
-          {timelineEvents.length > 0 ? (
-            <CorrelatedTimeline
-              events={timelineEvents}
-              height={120}
-              criticalPathEventIds={[]}
-              showCriticalPath={false}
-            />
-          ) : (
-            <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "center", color: "#555", fontSize: 13, background: "#2a2a2a", borderRadius: 6 }}>
-              No GPU data
-            </div>
-          )}
+          <div style={{ background: theme.bgSurfaceHighlight, padding: "2px", borderRadius: "8px", border: `1px solid ${theme.border}`, overflowX: "auto" }}>
+            {timelineEvents.length > 0 ? (
+              <CorrelatedTimeline
+                events={timelineEvents}
+                height={120}
+                criticalPathEventIds={[]}
+                showCriticalPath={false}
+              />
+            ) : (
+              <div style={{ height: 100, display: "flex", alignItems: "center", justifyContent: "center", color: theme.textSecondary, fontSize: 13 }}>
+                No GPU trace data available.
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </CorrelationProvider>
@@ -186,7 +220,7 @@ export default function CompareRuns() {
         if (!cancelled) setData(results);
       } catch (e) {
         console.error(e);
-        if (!cancelled) setError("Failed to load comparison data.");
+        if (!cancelled) setError("Failed to load comparison data. Please try again.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -197,108 +231,200 @@ export default function CompareRuns() {
   }, [sessionIds]);
 
   if (loading) {
-    return <div style={{ padding: 40, textAlign: "center", color: "#888" }}>Loading comparison…</div>;
+    return <div style={{ padding: 60, textAlign: "center", color: theme.textSecondary, fontSize: 16 }}>Loading deep comparison engine…</div>;
   }
 
   if (error) {
     return (
-      <div style={{ padding: 20 }}>
-        <p style={{ color: "#e74c3c" }}>{error}</p>
-        <button onClick={() => navigate("/")}>← Back</button>
+      <div style={{ padding: 40, textAlign: "center" }}>
+        <p style={{ color: theme.danger, marginBottom: 20, fontSize: 16 }}>{error}</p>
+        <button 
+          onClick={() => navigate("/")}
+          style={{ padding: "10px 20px", background: theme.bgSurfaceHighlight, border: `1px solid ${theme.border}`, color: theme.textPrimary, borderRadius: "8px", cursor: "pointer" }}
+        >
+          Return to Dashboard
+        </button>
       </div>
     );
   }
 
   if (data.length < 2) {
     return (
-      <div style={{ padding: 20 }}>
-        <p style={{ color: "#888" }}>Select at least two sessions to compare.</p>
-        <button onClick={() => navigate("/")}>← Back to Dashboard</button>
+      <div style={{ padding: 40, textAlign: "center" }}>
+        <p style={{ color: theme.textSecondary, marginBottom: 20 }}>Select at least two sessions from the dashboard to compare.</p>
+        <button 
+          onClick={() => navigate("/")}
+          style={{ padding: "10px 20px", background: theme.bgSurfaceHighlight, border: `1px solid ${theme.border}`, color: theme.textPrimary, borderRadius: "8px", cursor: "pointer" }}
+        >
+          Return to Dashboard
+        </button>
       </div>
     );
   }
 
-  const [runA, runB] = data;
-
   return (
-    <div style={{ padding: 20, maxWidth: 1400, margin: "0 auto" }}>
+    <div style={{ background: theme.bgApp, minHeight: "100vh", padding: "40px 20px", fontFamily: "Inter, system-ui, sans-serif" }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto" }}>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 24, alignItems: "center" }}>
-        <button
-          onClick={() => navigate("/")}
-          style={{ padding: "8px 16px", background: "transparent", color: "#646cff", border: "1px solid #646cff", borderRadius: "6px", cursor: "pointer" }}
-        >
-          ← Back
-        </button>
-        <button
-          onClick={() => { if (reportRef.current) exportElementToPdf(reportRef.current, `grof-compare-${data.map((d) => d.sessionId).join("-")}.pdf`); }}
-          style={{ padding: "8px 16px", background: "#2ecc71", color: "#fff", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "600" }}
-        >
-          📄 Export PDF Report
-        </button>
-      </div>
-
-      <div ref={reportRef}>
-        <h1 style={{ marginBottom: 8 }}>Compare Runs</h1>
-        <p style={{ color: "#888", marginBottom: 28 }}>Session {runA.sessionId} vs Session {runB.sessionId}</p>
-
-        {/* Side-by-side flamegraph + timeline */}
-        <section style={{ marginBottom: 36 }}>
-          <h2 style={{ marginBottom: 14 }}>📈 Side-by-Side Trace View</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-            {data.map((d) => (
-              <SessionPanel key={d.sessionId} sessionId={d.sessionId} metrics={d.metrics} />
-            ))}
+        {/* Header Ribbon */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 40, borderBottom: `1px solid ${theme.border}`, paddingBottom: 20 }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+              <button
+                onClick={() => navigate("/")}
+                style={{ background: "transparent", color: theme.textSecondary, border: "none", cursor: "pointer", fontSize: 14, padding: 0 }}
+              >
+                ← Back to Dashboard
+              </button>
+            </div>
+            <h1 style={{ margin: "0 0 8px 0", color: theme.textPrimary, fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em" }}>
+              Run Comparison
+            </h1>
+            <p style={{ margin: 0, color: theme.textSecondary, fontSize: 15 }}>
+              Analyzing {data.length} sessions (Baseline: Session {data[0].sessionId})
+            </p>
           </div>
-        </section>
+          <button
+            onClick={() => { if (reportRef.current) exportElementToPdf(reportRef.current, `grof-compare-${data.map((d) => d.sessionId).join("-")}.pdf`); }}
+            style={{ 
+              padding: "10px 20px", 
+              background: "linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)", 
+              color: "#fff", 
+              border: "none", 
+              borderRadius: "8px", 
+              cursor: "pointer", 
+              fontWeight: 600,
+              boxShadow: theme.glow,
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              transition: "opacity 0.2s"
+            }}
+            onMouseOver={(e) => e.currentTarget.style.opacity = "0.9"}
+            onMouseOut={(e) => e.currentTarget.style.opacity = "1"}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            Export Complete Report
+          </button>
+        </div>
 
-        {/* Metrics diff table */}
-        <section style={{ marginBottom: 36 }}>
-          <h2 style={{ marginBottom: 14 }}>📊 Metrics Comparison</h2>
-          <table style={{ width: "100%", borderCollapse: "collapse", background: "#1e1e1e", borderRadius: 8, overflow: "hidden" }}>
-            <thead>
-              <tr style={{ background: "#2a2a2a" }}>
-                <th style={thStyle}>Metric</th>
-                <th style={thStyle}>Session {runA.sessionId} (A)</th>
-                <th style={thStyle}>Session {runB.sessionId} (B)</th>
-                <th style={thStyle}>Δ (B − A)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <MetricRowWithDelta label="Total Time (ms)" values={data.map((d) => d.metrics.totalTimeMs)} lowerIsBetter />
-              <MetricRowWithDelta label="GPU Active Time (ms)" values={data.map((d) => d.metrics.gpuTotalTimeMs)} lowerIsBetter={false} />
-              <MetricRowWithDelta label="GPU Idle Time (ms)" values={data.map((d) => d.metrics.gpuIdleTimeMs)} lowerIsBetter />
-              <MetricRowWithDelta label="Memcpy Time (ms)" values={data.map((d) => d.metrics.memcpyTimeMs)} lowerIsBetter />
-              <MetricRowWithDelta label="CPU Active Time (ms)" values={data.map((d) => d.metrics.cpuTotalTimeMs)} lowerIsBetter />
-            </tbody>
-          </table>
-        </section>
-
-        {/* Kernel analysis */}
-        <section style={{ marginBottom: 36 }}>
-          <h2 style={{ marginBottom: 14 }}>🔬 Kernel Analysis (Side-by-Side)</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-            {data.map((d) => (
-              <div key={d.sessionId} style={{ background: "#1e1e1e", borderRadius: 8, padding: 16, border: "1px solid #333" }}>
-                <h3 style={{ margin: "0 0 12px 0", color: "#646cff", fontSize: 14 }}>Session {d.sessionId}</h3>
-                <KernelAnalysisTable kernels={d.metrics.gpuKernels} />
-                {d.metrics.gpuKernels.length === 0 && (
-                  <p style={{ color: "#555", fontSize: 13 }}>No kernel data available yet.</p>
-                )}
+        <div ref={reportRef}>
+          
+          {/* Top Level Summary Table */}
+          <section style={{ marginBottom: 48 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              <div style={{ width: 8, height: 24, background: theme.accent, borderRadius: 4 }}></div>
+              <h2 style={{ margin: 0, color: theme.textPrimary, fontSize: 20, fontWeight: 600 }}>Execution Summary</h2>
+            </div>
+            
+            <div style={{ 
+              background: theme.bgSurface, 
+              borderRadius: theme.radius, 
+              border: `1px solid ${theme.border}`,
+              overflow: "hidden",
+              boxShadow: theme.shadow
+            }}>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 800 }}>
+                  <thead>
+                    <tr style={{ background: theme.tableHead, borderBottom: `1px solid ${theme.border}` }}>
+                      <th style={thStyle}>Metric</th>
+                      {data.map((d, i) => (
+                        <th key={d.sessionId} style={thStyle}>
+                          <div style={{ color: theme.textPrimary, fontSize: 14 }}>Session {d.sessionId}</div>
+                          {i === 0 && <div style={{ fontSize: 11, color: theme.accent, marginTop: 2 }}>BASELINE</div>}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <MetricRowWithDelta label="Total Wall Time" values={data.map((d) => d.metrics.totalTimeMs)} lowerIsBetter theme={theme} />
+                    <MetricRowWithDelta label="GPU Active Compute" values={data.map((d) => d.metrics.gpuTotalTimeMs)} lowerIsBetter={false} theme={theme} />
+                    <MetricRowWithDelta label="GPU Idle Overlap" values={data.map((d) => d.metrics.gpuIdleTimeMs)} lowerIsBetter theme={theme} />
+                    <MetricRowWithDelta label="Memory Transfers (PCIe)" values={data.map((d) => d.metrics.memcpyTimeMs)} lowerIsBetter theme={theme} />
+                    <MetricRowWithDelta label="CPU Time" values={data.map((d) => d.metrics.cpuTotalTimeMs)} lowerIsBetter theme={theme} />
+                  </tbody>
+                </table>
               </div>
-            ))}
-          </div>
-        </section>
+            </div>
+          </section>
 
-        {/* Performance Insights */}
-        <section>
-          <h2 style={{ marginBottom: 14 }}>💡 Performance Insights</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-            {data.map((d) => (
-              <RecommendationsPanel key={d.sessionId} metrics={d.metrics} sessionLabel={`Session ${d.sessionId}`} />
-            ))}
-          </div>
-        </section>
+          {/* Trace Layout - Conditional based on count */}
+          <section style={{ marginBottom: 48 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              <div style={{ width: 8, height: 24, background: "#8B5CF6", borderRadius: 4 }}></div>
+              <h2 style={{ margin: 0, color: theme.textPrimary, fontSize: 20, fontWeight: 600 }}>Visual Traces</h2>
+            </div>
+            
+            <div style={{ 
+              display: data.length <= 2 ? "grid" : "flex", 
+              gridTemplateColumns: data.length <= 2 ? "1fr 1fr" : "none",
+              flexDirection: data.length <= 2 ? "row" : "column",
+              gap: 24 
+            }}>
+              {data.map((d) => (
+                <SessionPanel key={d.sessionId} sessionId={d.sessionId} metrics={d.metrics} />
+              ))}
+            </div>
+          </section>
+
+          {/* Kernel analysis */}
+          <section style={{ marginBottom: 48 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              <div style={{ width: 8, height: 24, background: "#10B981", borderRadius: 4 }}></div>
+              <h2 style={{ margin: 0, color: theme.textPrimary, fontSize: 20, fontWeight: 600 }}>Kernel Efficiency Analysis</h2>
+            </div>
+            <div style={{ 
+              display: "grid", 
+              gridTemplateColumns: `repeat(auto-fit, minmax(450px, 1fr))`, 
+              gap: 24 
+            }}>
+              {data.map((d) => (
+                <div key={d.sessionId} style={{ 
+                  background: theme.bgSurfaceHighlight, 
+                  borderRadius: theme.radius, 
+                  padding: "0", 
+                  border: `1px solid ${theme.border}`,
+                  boxShadow: theme.shadow,
+                  overflow: "hidden"
+                }}>
+                  <div style={{ padding: "16px 20px", borderBottom: `1px solid ${theme.border}`, background: theme.bgSurface }}>
+                    <h3 style={{ margin: 0, color: theme.textPrimary, fontSize: 15, fontWeight: 600 }}>Session {d.sessionId}</h3>
+                  </div>
+                  <div style={{ padding: 0 }}>
+                    <KernelAnalysisTable kernels={d.metrics.gpuKernels} />
+                    {d.metrics.gpuKernels.length === 0 && (
+                      <p style={{ color: theme.textSecondary, fontSize: 13, padding: 20, textAlign: "center", margin: 0 }}>No kernel calls found.</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Performance Insights */}
+          <section style={{ paddingBottom: 60 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+              <div style={{ width: 8, height: 24, background: "#F59E0B", borderRadius: 4 }}></div>
+              <h2 style={{ margin: 0, color: theme.textPrimary, fontSize: 20, fontWeight: 600 }}>AI Performance Insights</h2>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fit, minmax(400px, 1fr))`, gap: 24 }}>
+              {data.map((d) => (
+                <div key={d.sessionId} style={{ 
+                  background: theme.bgSurface, 
+                  borderRadius: theme.radius,
+                  border: `1px solid ${theme.border}`,
+                  boxShadow: theme.shadow,
+                  overflow: "hidden"
+                }}>
+                  <div style={{ padding: 20, height: "100%" }}>
+                    <RecommendationsPanel metrics={d.metrics} sessionLabel={`Session ${d.sessionId}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   );
@@ -306,30 +432,61 @@ export default function CompareRuns() {
 
 const thStyle: React.CSSProperties = {
   textAlign: "left",
-  padding: "12px 16px",
+  padding: "16px 20px",
   fontWeight: 600,
-  fontSize: 13,
-  color: "#aaa",
+  fontSize: 12,
+  letterSpacing: "0.05em",
+  textTransform: "uppercase",
+  color: "#94A3B8",
 };
 
-function MetricRowWithDelta({ label, values, lowerIsBetter }: { label: string; values: number[]; lowerIsBetter: boolean }) {
-  const a = values[0] ?? 0;
-  const b = values[1] ?? 0;
-  const delta = b - a;
-  const percent = a !== 0 ? (delta / a) * 100 : 0;
-  const improved = lowerIsBetter ? delta < 0 : delta > 0;
-  const unchanged = delta === 0;
-  const deltaColor = unchanged ? "#888" : improved ? "#2ecc71" : "#e74c3c";
-  const deltaSymbol = unchanged ? "—" : improved ? "✔" : "✗";
+interface MetricRowProps {
+  label: string;
+  values: number[];
+  lowerIsBetter: boolean;
+  theme: any;
+}
+
+function MetricRowWithDelta({ label, values, lowerIsBetter, theme }: MetricRowProps) {
+  const baseline = values[0] ?? 0;
 
   return (
-    <tr style={{ borderTop: "1px solid #2a2a2a" }}>
-      <td style={{ padding: "10px 16px", color: "#ddd" }}>{label}</td>
-      <td style={{ padding: "10px 16px", fontFamily: "monospace" }}>{Math.round(a)} ms</td>
-      <td style={{ padding: "10px 16px", fontFamily: "monospace" }}>{Math.round(b)} ms</td>
-      <td style={{ padding: "10px 16px", fontFamily: "monospace", color: deltaColor, fontWeight: 600 }}>
-        {delta > 0 ? "+" : ""}{delta.toFixed(1)} ms ({percent.toFixed(1)}%) {deltaSymbol}
-      </td>
+    <tr style={{ borderTop: `1px solid ${theme.border}`, transition: "background 0.2s" }} onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
+      <td style={{ padding: "16px 20px", color: theme.textSecondary, whiteSpace: "nowrap", fontWeight: 500 }}>{label}</td>
+      {values.map((val, idx) => {
+        if (idx === 0) {
+          return (
+             <td key={idx} style={{ padding: "16px 20px", fontFamily: "'SF Mono', Consolas, monospace", color: theme.textPrimary, fontSize: 15 }}>
+               {val.toFixed(2)} <span style={{fontSize: 12, color: theme.textSecondary}}>ms</span>
+             </td>
+          );
+        }
+        const delta = val - baseline;
+        const percent = baseline !== 0 ? (delta / baseline) * 100 : 0;
+        const improved = lowerIsBetter ? delta < 0 : delta > 0;
+        const unchanged = Math.abs(delta) < 0.01;
+        const deltaColor = unchanged ? theme.textSecondary : improved ? theme.success : theme.danger;
+        const deltaSymbol = unchanged ? "" : improved ? "↓" : "↑";
+
+        return (
+          <td key={idx} style={{ padding: "16px 20px" }}>
+            <div style={{ fontFamily: "'SF Mono', Consolas, monospace", color: theme.textPrimary, fontSize: 15, marginBottom: 4 }}>
+              {val.toFixed(2)} <span style={{fontSize: 12, color: theme.textSecondary}}>ms</span>
+            </div>
+            <div style={{ 
+              display: "inline-block",
+              background: unchanged ? "transparent" : `${deltaColor}15`,
+              color: deltaColor, 
+              fontWeight: 600, 
+              fontSize: 12,
+              padding: "4px 8px",
+              borderRadius: "4px"
+            }}>
+              {delta > 0 && !unchanged ? "+" : ""}{delta.toFixed(2)} ms ({percent > 0 && !unchanged ? "+" : ""}{percent.toFixed(1)}%) {deltaSymbol}
+            </div>
+          </td>
+        );
+      })}
     </tr>
   );
 }

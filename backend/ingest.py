@@ -154,7 +154,7 @@ def main():
                 import os
                 db_url = os.environ.get(
                     "DATABASE_URL",
-                    "postgresql://admin:admin@db:5432/grof"
+                    "postgresql://admin:admin@localhost:5432/grof"
                 )
                 # parse URL
                 conn = psycopg2.connect(db_url.replace("postgresql+psycopg2://", "postgresql://"))
@@ -163,6 +163,13 @@ def main():
                     cur.execute(
                         "INSERT INTO stack_frames (hash, function_name) VALUES (%s, %s) ON CONFLICT (hash) DO NOTHING",
                         (hash_val, fn_name)
+                    )
+                # Also insert a dummy time offset for critical path analysis
+                cur.execute("SELECT id FROM session_time_offsets WHERE session_id = %s", (args.session_id,))
+                if not cur.fetchone():
+                    cur.execute(
+                        "INSERT INTO session_time_offsets (session_id, cpu_sync_timestamp_ns, gpu_sync_timestamp_ns, offset_ns) VALUES (%s, %s, %s, %s)",
+                        (args.session_id, 0, 0, 0)
                     )
                 conn.commit()
                 cur.close()
