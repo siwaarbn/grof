@@ -79,7 +79,7 @@ function CorrelatedRunDetailsInner() {
   
   const formatPct = (part: number, total: number) => {
     if (!total || part === 0) return "0";
-    const raw = (part / total) * 100;
+    const raw = Math.min(100, (part / total) * 100);
     if (raw < 0.01) return "<0.01";
     if (raw < 1) return raw.toFixed(2);
     return Math.round(raw).toString();
