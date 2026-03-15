@@ -16,6 +16,10 @@ import math
 import requests
 
 
+# M1/T1 eBPF profiler runs at 99 Hz — each sample represents this many ms of CPU time.
+SAMPLE_INTERVAL_MS = 1000.0 / 99
+
+
 def load_jsonl(path):
     records = []
     with open(path) as f:
@@ -29,6 +33,36 @@ def load_jsonl(path):
 def load_json_array(path):
     with open(path) as f:
         return json.load(f)
+
+
+def load_file(path):
+    """
+    Load a CPU or GPU data file — handles three formats:
+      1. JSON array   : M1/T1 cpu_samples.json, M1/T2 gpu_trace.json
+      2. JSONL        : one compact JSON object per line
+      3. Multi-object : concatenated pretty-printed JSON objects (M2/T1/week3 format)
+    """
+    with open(path) as f:
+        content = f.read().strip()
+
+    # Format 1: JSON array
+    if content.startswith("["):
+        return json.loads(content)
+
+    # Format 2 & 3: one or more JSON objects — use the streaming decoder
+    records = []
+    decoder = json.JSONDecoder()
+    idx = 0
+    while idx < len(content):
+        # Skip whitespace between objects
+        while idx < len(content) and content[idx] in " \t\n\r":
+            idx += 1
+        if idx >= len(content):
+            break
+        obj, end = decoder.raw_decode(content, idx)
+        records.append(obj)
+        idx = end
+    return records
 
 
 def map_cpu_records(raw_records):
@@ -72,6 +106,42 @@ def map_cpu_samples(raw_records):
                 "thread_id": tid,
                 "stack_hash": fn_name,
             })
+
+    return samples, stack_frames
+
+
+def map_t1_cpu_samples(raw_records):
+    """
+    Map M1/T1 eBPF profiler output (cpu_samples.json) to cpu_samples + stack_frames.
+
+    M1/T1 format:
+      {"type": "cpu_sample", "pid": 1234, "timestamp_ns": 123456789,
+       "sample_count": 42, "stack": ["train", "forward", "conv2d"]}
+
+    Each function in the stack was observed `sample_count` times.
+    We insert one CpuSample row per observation so that the aggregation in
+    sessions.py (SAMPLE_INTERVAL_MS per row) yields the correct CPU time.
+    """
+    samples = []
+    stack_frames = {}
+
+    for rec in raw_records:
+        if rec.get("type") != "cpu_sample":
+            continue
+        stack = rec.get("stack", [])
+        timestamp = int(rec.get("timestamp_ns", rec.get("timestamp", 0)))
+        tid = rec.get("pid", rec.get("tid", 0))
+        count = max(1, int(rec.get("sample_count", 1)))
+
+        for fn_name in stack:
+            stack_frames[fn_name] = fn_name
+            # One row per sample so SAMPLE_INTERVAL_MS × count = correct CPU ms
+            for i in range(count):
+                samples.append({
+                    "timestamp": timestamp + i,
+                    "thread_id": tid,
+                    "stack_hash": fn_name,
+                })
 
     return samples, stack_frames
 
@@ -132,20 +202,35 @@ def main():
     # --- Ingest T1 CPU data ---
     if args.cpu:
         print(f"\n[T1] Loading {args.cpu} ...")
-        raw = load_jsonl(args.cpu)
-        items = map_cpu_records(raw)
-        print(f"  {len(raw)} raw records -> {len(items)} correlation events")
+        raw = load_file(args.cpu)
 
-        # 1. Ingest cpu-correlation (existing)
-        batches = math.ceil(max(len(items), 1) / args.batch_size)
-        for i in range(batches):
-            batch = items[i * args.batch_size:(i + 1) * args.batch_size]
-            post_batch(args.api, args.session_id, "cpu-correlation",
-                       {"items": batch}, args.dry_run)
+        # Detect format by inspecting record types
+        has_correlation = any(r.get("type") == "correlation" for r in raw)
+        has_t1_samples = any(r.get("type") == "cpu_sample" for r in raw)
 
-        # 2. Also ingest cpu_samples + stack_frames for the flamegraph
-        samples, stack_frames = map_cpu_samples(raw)
-        print(f"  {len(samples)} cpu samples, {len(stack_frames)} unique functions")
+        if has_correlation:
+            # ── M2/T1 format: cpu_correlation_with_stack.json ──────────────
+            items = map_cpu_records(raw)
+            print(f"  {len(raw)} raw records -> {len(items)} correlation events [M2/T1 format]")
+
+            batches = math.ceil(max(len(items), 1) / args.batch_size)
+            for i in range(batches):
+                batch = items[i * args.batch_size:(i + 1) * args.batch_size]
+                post_batch(args.api, args.session_id, "cpu-correlation",
+                           {"items": batch}, args.dry_run)
+
+            samples, stack_frames = map_cpu_samples(raw)
+            print(f"  {len(samples)} cpu samples, {len(stack_frames)} unique functions")
+
+        elif has_t1_samples:
+            # ── M1/T1 format: cpu_samples.json (week4_profiler.py output) ──
+            samples, stack_frames = map_t1_cpu_samples(raw)
+            print(f"  {len(raw)} raw records -> {len(samples)} cpu sample rows, "
+                  f"{len(stack_frames)} unique functions [M1/T1 eBPF format]")
+
+        else:
+            print(f"  [WARN] Unrecognised CPU file format — skipping")
+            samples, stack_frames = [], {}
 
         # Insert stack_frames via psycopg2 directly (no REST endpoint exists)
         if stack_frames and not args.dry_run:
@@ -189,7 +274,7 @@ def main():
     # --- Ingest T2 GPU data ---
     if args.gpu:
         print(f"\n[T2] Loading {args.gpu} ...")
-        raw = load_json_array(args.gpu)
+        raw = load_file(args.gpu)
         items = map_gpu_records(raw)
         print(f"  {len(raw)} raw records -> {len(items)} GPU events")
 

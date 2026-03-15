@@ -55,11 +55,13 @@ def get_session(session_id: int, db: Session = Depends(get_db)):
         .all()
     )
 
-    # Aggregate duration per function name (each sample = 1ms by convention)
+    # Aggregate duration per function name.
+    # M1/T1 eBPF profiler runs at 99 Hz → each sample represents ~10.1 ms of CPU time.
+    SAMPLE_INTERVAL_MS = 1000.0 / 99
     cpu_map: dict[str, float] = {}
     for sample, frame in cpu_rows:
         fn_name = frame.function_name if frame else f"stack_{sample.stack_hash or 'unknown'}"
-        cpu_map[fn_name] = cpu_map.get(fn_name, 0) + 1.0  # 1ms per sample
+        cpu_map[fn_name] = cpu_map.get(fn_name, 0) + SAMPLE_INTERVAL_MS
 
     cpu_samples = [
         {"function_name": name, "duration_ms": total_ms}
@@ -183,26 +185,19 @@ def stop(
     Stop a session and automatically ingest profiling data.
 
     Optional query params:
-      ?cpu_file=/path/to/cpu_correlation_with_stack.json
-      ?gpu_file=/path/to/gpu_trace.json
+      ?cpu_file=/path/to/cpu_correlation_with_stack.json  (M2/T1 format)
+                /path/to/cpu_samples.json                 (M1/T1 eBPF format)
+      ?gpu_file=/path/to/gpu_trace.json                   (M1/T2 format)
 
-    If not provided, the backend auto-detects files in /tmp/grof/ and the repo root.
+    If not provided, auto-detects files in GROF_DATA_DIR, /tmp/grof/, and the repo root.
+    Accepts both M1/T1 cpu_samples.json and M2/T1 cpu_correlation_with_stack.json formats.
     """
-    import threading
-    from app.services.session_services import _run_ingest
-
-    session = stop_session(db, session_id)
+    # Pass explicit paths into stop_session so it uses them as the first candidates
+    # in its search — stop_session starts the ingestion thread itself.
+    session = stop_session(db, session_id, cpu_file=cpu_file, gpu_file=gpu_file)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    # If explicit paths given, override auto-detection
     if cpu_file or gpu_file:
-        thread = threading.Thread(
-            target=_run_ingest,
-            args=(session_id, cpu_file, gpu_file),
-            daemon=True,
-        )
-        thread.start()
         return {"status": "stopped", "ingestion": "started with provided files"}
-
     return {"status": "stopped", "ingestion": "auto-detecting files"}

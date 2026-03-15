@@ -71,8 +71,12 @@ def stop_session(db: Session, session_id: int, cpu_file: str = None, gpu_file: s
 
     search_paths = [
         cpu_file,  # explicit override
+        # M2/T1 correlation format
         os.path.join(data_dir, "cpu_correlation_with_stack.json"),
         "/tmp/grof/cpu_correlation_with_stack.json",
+        # M1/T1 eBPF sampling format (week4_profiler.py output)
+        os.path.join(data_dir, "cpu_samples.json"),
+        "/tmp/grof/cpu_samples.json",
     ]
     gpu_search_paths = [
         gpu_file,  # explicit override
