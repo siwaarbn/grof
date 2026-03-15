@@ -21,7 +21,7 @@ export type GpuEvent = GpuKernelEvent | GpuMemcpyEvent;
 export interface RawSession {
   id: string;
   start_time: number;
-  end_time: number;
+  end_time: number | null;
   cpu_samples: CpuSample[];
   gpu_events: GpuEvent[];
 }

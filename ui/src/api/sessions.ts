@@ -40,7 +40,9 @@ function adaptSession(raw: RawSessionListItem): Session {
  * - gpu_events   →  gpuKernels + memcpyTimeMs
  */
 function adaptSessionMetrics(raw: RawSession): SessionMetrics {
-  const sessionDurationMs = (raw.end_time - raw.start_time) / 1e6;
+  // For running sessions end_time is null — use current time as fallback (ns)
+  const endNs = raw.end_time ?? Date.now() * 1_000_000;
+  const sessionDurationMs = (endNs - raw.start_time) / 1e6;
 
   // ── CPU ──────────────────────────────────────────────────────────────────
   const cpuMap = new Map<string, number>();

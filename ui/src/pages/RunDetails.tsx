@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
 import Flamegraph from "../components/Flamegraph";
-import FlamegraphLegend from "../components/FlamegraphLegend";
 
 import { fetchFlamegraph } from "../api/flamegraph";
 import type { FlamegraphNode } from "../types/flamegraph";
@@ -82,7 +81,6 @@ export default function RunDetails() {
       {/* Flamegraph */}
       <section>
         <h2 style={{ marginBottom: 15 }}>Flamegraph</h2>
-        <FlamegraphLegend />
 
         {flamegraph ? (
           <Flamegraph data={flamegraph} height={600} />

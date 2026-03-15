@@ -7,6 +7,10 @@ interface Props {
 const th: React.CSSProperties = { textAlign: "left", padding: "6px 10px" };
 const td: React.CSSProperties = { padding: "6px 10px" };
 
+function truncateKernelName(name: string, max = 55): string {
+  return name.length > max ? name.slice(0, max) + "…" : name;
+}
+
 export default function KernelAnalysisTable({ kernels }: Props) {
   return (
     <div style={{ overflowX: "auto" }}>
@@ -24,11 +28,13 @@ export default function KernelAnalysisTable({ kernels }: Props) {
       <tbody>
         {kernels.map((kernel) => (
           <tr key={kernel.name} style={{ borderBottom: "1px solid #2D313A" }}>
-            <td 
-              style={{ ...td, maxWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", width: "40%", color: "#E2E8F0" }} 
+            <td
+              style={{ ...td, width: "40%", color: "#E2E8F0" }}
               title={kernel.name}
             >
-              <span style={{ cursor: "default" }}>{kernel.name}</span>
+              <span style={{ cursor: "default", fontFamily: "inherit", fontSize: 12 }}>
+                {truncateKernelName(kernel.name)}
+              </span>
             </td>
             <td style={{...td, width: "15%", color: "#94A3B8"}}>{kernel.count}</td>
             <td style={td}>{kernel.totalTimeMs.toFixed(2)}</td>

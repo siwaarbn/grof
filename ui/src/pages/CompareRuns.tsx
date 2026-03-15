@@ -7,6 +7,10 @@ import { fetchSessionMetrics } from "../api/sessions";
 
 /* ===== UTILS ===== */
 import { exportElementToPdf } from "../utils/exportPdf";
+import { buildFlamegraphData, buildTimelineEvents } from "../utils/traceBuilders";
+
+/* ===== THEME ===== */
+import { theme } from "../theme";
 
 /* ===== TYPES ===== */
 import type { SessionMetrics } from "../types/comparison";
@@ -33,88 +37,6 @@ function parseSessionIds(param: string | null): number[] {
     .map(Number)
     .filter((x) => Number.isFinite(x));
 }
-
-function buildFlamegraphData(
-  cpuFunctions: Array<{ name: string; totalTimeMs: number }>,
-  totalTimeMs: number
-) {
-  const sorted = [...cpuFunctions].sort((a, b) => b.totalTimeMs - a.totalTimeMs);
-  return {
-    id: "root",
-    name: "root",
-    value: totalTimeMs || 1,
-    children: sorted.map((fn, idx) => ({
-      id: `child-${idx}`,
-      name: fn.name,
-      value: fn.totalTimeMs,
-      children: [],
-    })),
-  };
-}
-
-function buildTimelineEvents(
-  gpuKernels: Array<{ name: string; totalTimeMs: number; count: number }>,
-  memcpyTimeMs: number
-) {
-  const events: Array<{
-    id: string;
-    name: string;
-    type: "CUDA" | "Memory" | "Kernel";
-    startTime: number;
-    endTime: number;
-    stream: number;
-    relatedFlamegraphNodes: string[];
-  }> = [];
-  let cursor = 0;
-  let idx = 0;
-
-  for (const kernel of gpuKernels) {
-    const avgDuration = kernel.totalTimeMs / kernel.count;
-    for (let i = 0; i < kernel.count; i++) {
-      events.push({
-        id: `gpu-${idx++}`,
-        name: kernel.name,
-        type: kernel.name.toLowerCase().includes("memcpy") ? "Memory" : "Kernel",
-        startTime: cursor,
-        endTime: cursor + avgDuration,
-        stream: 1,
-        relatedFlamegraphNodes: [],
-      });
-      cursor += avgDuration;
-    }
-  }
-
-  if (memcpyTimeMs > 0) {
-    events.push({
-      id: `gpu-${idx++}`,
-      name: "memcpy",
-      type: "Memory",
-      startTime: cursor,
-      endTime: cursor + memcpyTimeMs,
-      stream: 2,
-      relatedFlamegraphNodes: [],
-    });
-  }
-
-  return events;
-}
-
-// --- PREMIUM THEME CONSTANTS ---
-const theme = {
-  bgApp: "#090A0C",
-  bgSurface: "#13151A",
-  bgSurfaceHighlight: "#1A1C23",
-  border: "#262933",
-  textPrimary: "#F8FAFC",
-  textSecondary: "#94A3B8",
-  accent: "#6366F1",
-  success: "#10B981",
-  danger: "#EF4444",
-  tableHead: "#101115",
-  radius: "12px",
-  shadow: "0 4px 20px rgba(0,0,0,0.5)",
-  glow: "0 0 15px rgba(99, 102, 241, 0.15)"
-};
 
 /* ================= SESSION PANEL ================= */
 
@@ -331,8 +253,15 @@ export default function CompareRuns() {
                       <th style={thStyle}>Metric</th>
                       {data.map((d, i) => (
                         <th key={d.sessionId} style={thStyle}>
-                          <div style={{ color: theme.textPrimary, fontSize: 14 }}>Session {d.sessionId}</div>
+                          <div style={{ color: theme.textPrimary, fontSize: 14 }}>
+                            Session {d.sessionId} ({String.fromCharCode(65 + i)})
+                          </div>
                           {i === 0 && <div style={{ fontSize: 11, color: theme.accent, marginTop: 2 }}>BASELINE</div>}
+                        </th>
+                      ))}
+                      {data.length >= 2 && data.slice(1).map((d, i) => (
+                        <th key={`delta-${d.sessionId}`} style={{ ...thStyle, color: theme.textSecondary }}>
+                          Δ ({String.fromCharCode(66 + i)} − A)
                         </th>
                       ))}
                     </tr>
@@ -449,40 +378,52 @@ interface MetricRowProps {
 
 function MetricRowWithDelta({ label, values, lowerIsBetter, theme }: MetricRowProps) {
   const baseline = values[0] ?? 0;
+  const monoStyle: React.CSSProperties = { fontFamily: "'SF Mono', Consolas, monospace", fontSize: 15 };
 
   return (
-    <tr style={{ borderTop: `1px solid ${theme.border}`, transition: "background 0.2s" }} onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'} onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}>
+    <tr
+      style={{ borderTop: `1px solid ${theme.border}`, transition: "background 0.2s" }}
+      onMouseOver={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.02)"; }}
+      onMouseOut={(e) => { e.currentTarget.style.background = "transparent"; }}
+    >
+      {/* Metric label */}
       <td style={{ padding: "16px 20px", color: theme.textSecondary, whiteSpace: "nowrap", fontWeight: 500 }}>{label}</td>
-      {values.map((val, idx) => {
-        if (idx === 0) {
-          return (
-             <td key={idx} style={{ padding: "16px 20px", fontFamily: "'SF Mono', Consolas, monospace", color: theme.textPrimary, fontSize: 15 }}>
-               {val.toFixed(2)} <span style={{fontSize: 12, color: theme.textSecondary}}>ms</span>
-             </td>
-          );
-        }
+
+      {/* Value cells — one per session */}
+      {values.map((val, idx) => (
+        <td key={idx} style={{ padding: "16px 20px", ...monoStyle, color: theme.textPrimary }}>
+          {val.toFixed(2)} <span style={{ fontSize: 12, color: theme.textSecondary }}>ms</span>
+        </td>
+      ))}
+
+      {/* Delta cells — one per non-baseline session */}
+      {values.slice(1).map((val, idx) => {
         const delta = val - baseline;
         const percent = baseline !== 0 ? (delta / baseline) * 100 : 0;
         const improved = lowerIsBetter ? delta < 0 : delta > 0;
         const unchanged = Math.abs(delta) < 0.01;
         const deltaColor = unchanged ? theme.textSecondary : improved ? theme.success : theme.danger;
-        const deltaSymbol = unchanged ? "" : improved ? "↓" : "↑";
+        const sign = delta > 0 && !unchanged ? "+" : "";
+        const pctSign = percent > 0 && !unchanged ? "+" : "";
+        const symbol = unchanged ? "—" : improved ? "✓" : "✗";
 
         return (
-          <td key={idx} style={{ padding: "16px 20px" }}>
-            <div style={{ fontFamily: "'SF Mono', Consolas, monospace", color: theme.textPrimary, fontSize: 15, marginBottom: 4 }}>
-              {val.toFixed(2)} <span style={{fontSize: 12, color: theme.textSecondary}}>ms</span>
-            </div>
-            <div style={{ 
-              display: "inline-block",
-              background: unchanged ? "transparent" : `${deltaColor}15`,
-              color: deltaColor, 
-              fontWeight: 600, 
-              fontSize: 12,
-              padding: "4px 8px",
-              borderRadius: "4px"
+          <td key={`delta-${idx}`} style={{ padding: "16px 20px" }}>
+            <div style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              background: unchanged ? "transparent" : `${deltaColor}18`,
+              color: deltaColor,
+              fontWeight: 600,
+              fontSize: 13,
+              padding: "6px 10px",
+              borderRadius: "6px",
+              ...monoStyle,
             }}>
-              {delta > 0 && !unchanged ? "+" : ""}{delta.toFixed(2)} ms ({percent > 0 && !unchanged ? "+" : ""}{percent.toFixed(1)}%) {deltaSymbol}
+              <span>{sign}{delta.toFixed(2)} ms</span>
+              <span style={{ opacity: 0.75 }}>({pctSign}{percent.toFixed(1)}%)</span>
+              <span>{symbol}</span>
             </div>
           </td>
         );

@@ -10,16 +10,17 @@ const formatDuration = (seconds: number): string => {
   return `${secs}s`;
 };
 
-const getStatusStyle = (status: "completed" | "running" | "failed") => {
-  switch (status) {
+const getStatusStyle = (status: "completed" | "running" | "failed" | string) => {
+  const normalized = status.toLowerCase();
+  switch (normalized) {
     case "completed":
-      return { background: "#2ecc71", color: "#fff" };
+      return { background: "rgba(16, 185, 129, 0.15)", color: "#10B981", border: "1px solid rgba(16, 185, 129, 0.3)" };
     case "running":
-      return { background: "#3498db", color: "#fff" };
+      return { background: "rgba(99, 102, 241, 0.15)", color: "#818CF8", border: "1px solid rgba(99, 102, 241, 0.3)" };
     case "failed":
-      return { background: "#e74c3c", color: "#fff" };
+      return { background: "rgba(244, 63, 94, 0.15)", color: "#F43F5E", border: "1px solid rgba(244, 63, 94, 0.3)" };
     default:
-      return { background: "#95a5a6", color: "#fff" };
+      return { background: "rgba(148, 163, 184, 0.15)", color: "#94A3B8", border: "1px solid rgba(148, 163, 184, 0.3)" };
   }
 };
 
@@ -37,39 +38,44 @@ export default function SessionList({
   return (
     <section
       style={{
-        background: "#1e1e1e",
-        borderRadius: "8px",
-        padding: "20px",
+        background: "#13151A",
+        border: "1px solid #262933",
+        borderRadius: "12px",
         width: "100%",
         boxSizing: "border-box",
+        boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+        overflow: "hidden"
       }}
     >
-      <h2 style={{ marginTop: 0, marginBottom: "20px" }}>Session List</h2>
+      <div style={{ padding: "20px 24px", borderBottom: "1px solid #262933", background: "rgba(255,255,255,0.02)" }}>
+        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#F8FAFC" }}>Session Registry</h3>
+      </div>
 
       <div style={{ overflowX: "auto" }}>
         <table
           style={{
             width: "100%",
             borderCollapse: "collapse",
-            fontSize: "14px",
+            fontSize: "13px",
           }}
         >
           <thead>
-            <tr style={{ background: "#2a2a2a", textAlign: "left" }}>
-              <th style={{ padding: "12px 15px" }}></th>
-              <th style={{ padding: "12px 15px" }}>ID</th>
-              <th style={{ padding: "12px 15px" }}>Name</th>
-              <th style={{ padding: "12px 15px" }}>Date</th>
-              <th style={{ padding: "12px 15px" }}>Duration</th>
-              <th style={{ padding: "12px 15px" }}>Status</th>
-              <th style={{ padding: "12px 15px" }}>GPU %</th>
-              <th style={{ padding: "12px 15px" }}>CPU %</th>
+            <tr style={{ background: "#090A0C", textAlign: "left" }}>
+              <th style={{ padding: "14px 24px", width: 40 }}></th>
+              <th style={{ padding: "14px 16px", color: "#94A3B8", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", fontSize: 11 }}>ID</th>
+              <th style={{ padding: "14px 16px", color: "#94A3B8", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", fontSize: 11 }}>Name</th>
+              <th style={{ padding: "14px 16px", color: "#94A3B8", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", fontSize: 11 }}>Date</th>
+              <th style={{ padding: "14px 16px", color: "#94A3B8", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", fontSize: 11 }}>Duration</th>
+              <th style={{ padding: "14px 16px", color: "#94A3B8", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", fontSize: 11 }}>Status</th>
+              <th style={{ padding: "14px 16px", color: "#94A3B8", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", fontSize: 11 }}>GPU %</th>
+              <th style={{ padding: "14px 24px", color: "#94A3B8", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", fontSize: 11 }}>CPU %</th>
             </tr>
           </thead>
 
           <tbody>
-            {sessions.map((session) => {
+            {sessions.map((session, i) => {
               const isSelected = selectedSessionIds.includes(session.id);
+              const isLast = i === sessions.length - 1;
 
               return (
                 <tr
@@ -77,41 +83,49 @@ export default function SessionList({
                   onClick={() => onToggleSelect(session.id)}
                   style={{
                     cursor: "pointer",
-                    background: isSelected ? "#2a2a3d" : "transparent",
-                    borderLeft: isSelected
-                      ? "4px solid #646cff"
-                      : "4px solid transparent",
+                    background: isSelected ? "rgba(99, 102, 241, 0.08)" : "transparent",
+                    borderBottom: isLast ? "none" : "1px solid #262933",
+                    transition: "background 0.2s"
                   }}
+                  onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = "#1A1D24"; }}
+                  onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = "transparent"; }}
                 >
                   {/* Checkbox */}
-                  <td style={{ padding: "12px 15px" }}>
-                    <input type="checkbox" checked={isSelected} readOnly />
+                  <td style={{ padding: "16px 24px" }}>
+                    <div style={{
+                      width: 18, height: 18, border: `2px solid ${isSelected ? "#6366F1" : "#475569"}`, 
+                      borderRadius: 4, display: "flex", alignItems: "center", justifyContent: "center",
+                      background: isSelected ? "#6366F1" : "transparent", transition: "all 0.2s"
+                    }}>
+                      {isSelected && <span style={{ color: "#fff", fontSize: 12 }}>✓</span>}
+                    </div>
                   </td>
 
-                  <td style={{ padding: "12px 15px", color: "#888" }}>
-                    {session.id.slice(-3)}
+                  <td style={{ padding: "16px 16px", color: "#94A3B8", fontFamily: 'SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace' }}>
+                    #{session.id.slice(-4)}
                   </td>
 
-                  <td style={{ padding: "12px 15px", fontWeight: "500" }}>
+                  <td style={{ padding: "16px 16px", fontWeight: "500", color: "#F8FAFC" }}>
                     {session.name}
                   </td>
 
-                  <td style={{ padding: "12px 15px", color: "#aaa" }}>
+                  <td style={{ padding: "16px 16px", color: "#cbd5e1", fontSize: 13 }}>
                     {session.date}
                   </td>
 
-                  <td style={{ padding: "12px 15px", fontFamily: "monospace" }}>
+                  <td style={{ padding: "16px 16px", fontFamily: 'SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace', color: "#cbd5e1", fontSize: 13 }}>
                     {formatDuration(session.duration)}
                   </td>
 
-                  <td style={{ padding: "12px 15px" }}>
+                  <td style={{ padding: "16px 16px" }}>
                     <span
                       style={{
                         ...getStatusStyle(session.status),
                         padding: "4px 10px",
-                        borderRadius: "12px",
-                        fontSize: "12px",
-                        fontWeight: "600",
+                        borderRadius: "16px",
+                        fontSize: "11px",
+                        fontWeight: "700",
+                        letterSpacing: "0.05em",
                         textTransform: "uppercase",
                       }}
                     >
@@ -119,11 +133,11 @@ export default function SessionList({
                     </span>
                   </td>
 
-                  <td style={{ padding: "12px 15px" }}>
+                  <td style={{ padding: "16px 16px", fontFamily: 'SFMono-Regular, Consolas, monospace', color: "#cbd5e1" }}>
                     {session.gpuUsage}%
                   </td>
 
-                  <td style={{ padding: "12px 15px" }}>
+                  <td style={{ padding: "16px 24px", fontFamily: 'SFMono-Regular, Consolas, monospace', color: "#cbd5e1" }}>
                     {session.cpuUsage}%
                   </td>
                 </tr>

@@ -1,12 +1,12 @@
-// @ts-nocheck
 import { useEffect, useRef, useState, useContext } from "react";
 import { flamegraph } from "d3-flame-graph";
 import "d3-flame-graph/dist/d3-flamegraph.css";
 import * as d3 from "d3";
 import { CorrelationContext } from "../context/CorrelationContext";
+import type { FlamegraphNode } from "../types/flamegraph";
 
 interface FlamegraphProps {
-    data: any;
+    data: FlamegraphNode;
     width?: number;
     height?: number;
 }
@@ -64,10 +64,27 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
             .inverted(false)
             .color((d: any) => {
                 const name = d?.data?.name || "";
-                if (name.includes("[Python]")) return "#e74c3c";
-                if (name.includes("[C++]")) return "#3498db";
-                if (name.includes("[CUDA]")) return "#9b59b6";
-                return "#95a5a6";
+                const n = name.toLowerCase();
+                
+                // PyTorch / Neural Net Ops
+                if (n.includes("aten::")) return "#0ea5e9"; // Sky Blue
+                if (n.includes("torch") || n.includes("nn")) return "#e11d48"; // PyTorch Red
+                if (n.includes("forward") || n.includes("train") || n.includes("epoch")) return "#10b981"; // Emerald
+                if (n.includes("backward")) return "#f59e0b"; // Amber
+                
+                // CUDA / Kernels
+                if (n.includes("cuda")) return "#6366f1"; // Indigo
+                if (n.includes("conv") || n.includes("gemm") || n.includes("linear")) return "#8b5cf6"; // Violet
+                
+                // Python / C++ specific
+                if (name.includes("[Python]")) return "#f43f5e";
+                if (name.includes("[C++]")) return "#3b82f6";
+                if (name.includes("[CUDA]")) return "#8b5cf6";
+
+                // Fallback Hash Color
+                const hash = name.split("").reduce((a, b) => { a = ((a << 5) - a) + b.charCodeAt(0); return a & a; }, 0);
+                const colors = ["#3b82f6", "#8b5cf6", "#ec4899", "#f59e0b", "#10b981", "#14b8a6", "#0ea5e9", "#6366f1", "#d946ef", "#f43f5e"];
+                return colors[Math.abs(hash) % colors.length] || "#94a3b8";
             });
 
         chartInstanceRef.current = chart;
@@ -175,47 +192,71 @@ const Flamegraph = ({ data, width, height = 600 }: FlamegraphProps) => {
                     marginBottom: "15px",
                     flexWrap: "wrap",
                     alignItems: "center",
+                    justifyContent: "space-between"
                 }}
             >
-                <input
-                    type="text"
-                    placeholder="Search functions (e.g. conv2d)..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    style={{
-                        padding: "8px 12px",
-                        borderRadius: "4px",
-                        border: "1px solid #444",
-                        background: "#2a2a2a",
-                        color: "#fff",
-                        fontSize: "14px",
-                        minWidth: "250px",
-                        flex: "1 1 250px",
-                    }}
-                />
-                <button
-                    onClick={handleReset}
-                    style={{
-                        padding: "8px 16px",
-                        borderRadius: "4px",
-                        border: "1px solid #646cff",
-                        background: "#646cff",
-                        color: "#fff",
-                        cursor: "pointer",
-                        fontSize: "14px",
-                        fontWeight: "500",
-                    }}
-                >
-                    Reset View
-                </button>
+                <div style={{ display: "flex", gap: "10px", flex: "1 1 250px" }}>
+                    <input
+                        type="text"
+                        placeholder="Search functions (e.g. conv2d)..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        style={{
+                            padding: "8px 12px",
+                            borderRadius: "6px",
+                            border: "1px solid #262933",
+                            background: "#13151A",
+                            color: "#F8FAFC",
+                            fontSize: "13px",
+                            minWidth: "250px",
+                            outline: "none",
+                            width: "100%",
+                        }}
+                    />
+                    <button
+                        onClick={handleReset}
+                        style={{
+                            padding: "8px 16px",
+                            borderRadius: "6px",
+                            border: "1px solid #6366F1",
+                            background: "rgba(99, 102, 241, 0.15)",
+                            color: "#818CF8",
+                            cursor: "pointer",
+                            fontSize: "13px",
+                            fontWeight: "600",
+                            textTransform: "uppercase",
+                            letterSpacing: "0.05em",
+                            transition: "all 0.2s"
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = "#6366F1"; e.currentTarget.style.color = "#fff"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(99, 102, 241, 0.15)"; e.currentTarget.style.color = "#818CF8"; }}
+                    >
+                        Reset
+                    </button>
+                </div>
+
+                {/* Legend */}
+                <div style={{ display: "flex", gap: "16px", fontSize: "12px", color: "#94A3B8", flexWrap: "wrap", alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#e11d48", border: "1px solid rgba(255,255,255,0.2)" }} /> <span>PyTorch / Python</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#10b981", border: "1px solid rgba(255,255,255,0.2)" }} /> <span>Forward / Train</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#6366f1", border: "1px solid rgba(255,255,255,0.2)" }} /> <span>CUDA Kernels</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#0ea5e9", border: "1px solid rgba(255,255,255,0.2)" }} /> <span>C++ / System</span>
+                    </div>
+                </div>
             </div>
 
             <div
                 ref={chartRef}
                 style={{
-                    background: "#1e1e1e",
+                    background: "transparent",
                     borderRadius: "8px",
-                    padding: "10px",
                     cursor: "pointer",
                     overflow: "hidden",
                     width: "100%",

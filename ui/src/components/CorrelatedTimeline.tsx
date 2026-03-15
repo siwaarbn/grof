@@ -286,8 +286,10 @@ const CorrelatedTimeline = ({ events, width, height = 400, criticalPathEventIds 
             .attr("font-size", "11px")
             .attr("pointer-events", "none")
             .text((d) => {
-                const width = xScale(d.endTime) - xScale(d.startTime);
-                return width > 50 ? d.name : "";
+                const barWidth = xScale(d.endTime) - xScale(d.startTime);
+                if (barWidth <= 30) return "";
+                const maxChars = Math.max(1, Math.floor(barWidth / 7));
+                return d.name.length > maxChars ? d.name.slice(0, maxChars - 1) + "…" : d.name;
             });
 
         // Cleanup
@@ -346,7 +348,7 @@ const CorrelatedTimeline = ({ events, width, height = 400, criticalPathEventIds 
                 <svg
                     ref={svgRef}
                     style={{
-                        background: "#1e1e1e",
+                        background: "transparent",
                         borderRadius: "8px",
                         display: "block",
                     }}

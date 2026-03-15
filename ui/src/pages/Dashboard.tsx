@@ -4,11 +4,12 @@ import { useNavigate } from "react-router-dom";
 import SessionList from "../components/SessionList";
 import Flamegraph from "../components/Flamegraph";
 
-import { fetchSessions } from "../api/sessions";
+import { fetchSessions, fetchSessionMetrics } from "../api/sessions";
 import { fetchFlamegraph } from "../api/flamegraph";
 
 import type { Session } from "../types/session";
 import type { FlamegraphNode } from "../types/flamegraph";
+import { theme } from "../theme";
 
 export default function Dashboard() {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -25,13 +26,41 @@ export default function Dashboard() {
 
   // ---------------- fetch sessions ----------------
   useEffect(() => {
-    fetchSessions()
-      .then((data) => setSessions(data))
-      .catch((err: unknown) => {
+    async function load() {
+      try {
+        const data = await fetchSessions();
+        setSessions(data);
+        setLoading(false);
+
+        // Fetch per-session metrics in parallel to populate GPU% / CPU%
+        const results = await Promise.allSettled(
+          data.map((s) => fetchSessionMetrics(s.id))
+        );
+        setSessions(
+          data.map((session, i) => {
+            const r = results[i];
+            if (r.status !== "fulfilled") return session;
+            const m = r.value;
+            return {
+              ...session,
+              gpuUsage:
+                m.totalTimeMs > 0
+                  ? Math.round((m.gpuTotalTimeMs / m.totalTimeMs) * 100)
+                  : 0,
+              cpuUsage:
+                m.totalTimeMs > 0
+                  ? Math.round((m.cpuTotalTimeMs / m.totalTimeMs) * 100)
+                  : 0,
+            };
+          })
+        );
+      } catch (err: unknown) {
         console.error("❌ fetchSessions failed", err);
         setError(err instanceof Error ? err.message : "Failed to load sessions");
-      })
-      .finally(() => setLoading(false));
+        setLoading(false);
+      }
+    }
+    load();
   }, []);
 
   // ---------------- session click: toggle + flamegraph preview ----------------
@@ -70,69 +99,118 @@ export default function Dashboard() {
 
   // ---------------- render ----------------
   return (
-    <div style={{ padding: 20 }}>
-      <h1>GROF Dashboard</h1>
-      <p style={{ color: "#888" }}>Sessions loaded: {sessions.length}</p>
+    <div style={{ minHeight: "100vh", background: theme.bgApp, color: theme.textPrimary, padding: "40px 48px", boxSizing: "border-box" }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto" }}>
+        
+        {/* Header Section */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 32 }}>
+          <div>
+            <h1 style={{ margin: "0 0 8px 0", fontSize: 32, fontWeight: 700, letterSpacing: "-0.02em" }}>GROF Dashboard</h1>
+            <p style={{ margin: 0, color: theme.textSecondary, fontSize: 15 }}>
+              Manage profiling sessions and launch traces
+            </p>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <span style={{ color: theme.textSecondary, fontSize: 13, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 600 }}>Active Sessions</span>
+            <div style={{ fontSize: 24, fontWeight: 600, color: theme.textPrimary }}>{sessions.length}</div>
+          </div>
+        </div>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
-        <button
-          onClick={handleCompare}
-          disabled={selectedSessionIds.length < 2}
-          style={{
-            padding: "8px 18px",
-            background: selectedSessionIds.length >= 2 ? "#646cff" : "#333",
-            color: selectedSessionIds.length >= 2 ? "#fff" : "#666",
-            border: "none",
-            borderRadius: "6px",
-            cursor: selectedSessionIds.length >= 2 ? "pointer" : "not-allowed",
-            fontWeight: "600",
-          }}
-        >
-          ⚖️ Compare ({selectedSessionIds.length})
-        </button>
-
-        {previewSessionId && (
+        {/* Action Panel */}
+        <div style={{ display: "flex", gap: 12, marginBottom: 24, flexWrap: "wrap", alignItems: "center" }}>
           <button
-            onClick={() => handleViewDetails(previewSessionId)}
+            onClick={handleCompare}
+            disabled={selectedSessionIds.length < 2}
             style={{
-              padding: "8px 18px",
-              background: "transparent",
-              color: "#646cff",
-              border: "1px solid #646cff",
-              borderRadius: "6px",
-              cursor: "pointer",
+              padding: "10px 20px",
+              background: selectedSessionIds.length >= 2 ? theme.accent : theme.bgSurfaceHighlight,
+              color: selectedSessionIds.length >= 2 ? "#fff" : theme.textSecondary,
+              border: `1px solid ${selectedSessionIds.length >= 2 ? theme.accent : theme.border}`,
+              borderRadius: "8px",
+              cursor: selectedSessionIds.length >= 2 ? "pointer" : "not-allowed",
+              fontWeight: "600",
+              fontSize: 14,
+              transition: "all 0.2s"
             }}
           >
-            🔍 View Details →
+            ⚖️ A/B Compare ({selectedSessionIds.length} selected)
           </button>
-        )}
+          {selectedSessionIds.length < 2 && (
+            <span style={{ color: theme.textSecondary, fontSize: 13 }}>
+              ← Select 2 sessions from the list below to run an A/B comparison
+            </span>
+          )}
+
+          {previewSessionId && (
+            <button
+              onClick={() => handleViewDetails(previewSessionId)}
+              style={{
+                padding: "10px 20px",
+                background: "transparent",
+                color: theme.accent,
+                border: `1px solid ${theme.accent}`,
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "600",
+                fontSize: 14,
+                transition: "all 0.2s"
+              }}
+            >
+              🔍 View Details →
+            </button>
+          )}
       </div>
 
-      <SessionList
-        sessions={sessions}
-        selectedSessionIds={selectedSessionIds}
-        onToggleSelect={toggleSessionSelection}
-      />
+        <SessionList
+          sessions={sessions}
+          selectedSessionIds={selectedSessionIds}
+          onToggleSelect={toggleSessionSelection}
+        />
 
-      <hr style={{ margin: "30px 0", borderColor: "#333" }} />
+        <div style={{ marginTop: 40, borderTop: `1px solid ${theme.border}`, paddingTop: 32 }}>
+          <h2 style={{ margin: "0 0 20px 0", fontSize: 20, fontWeight: 600 }}>Flamegraph Preview</h2>
 
-      <h2>Flamegraph Preview</h2>
+          <div style={{ 
+            background: theme.bgSurface, 
+            border: `1px solid ${theme.border}`, 
+            borderRadius: theme.radius, 
+            padding: "24px",
+            boxShadow: theme.shadow
+          }}>
+            {flamegraphLoading && (
+              <div style={{ padding: "60px", textAlign: "center", color: theme.textSecondary, fontSize: 14 }}>
+                <div style={{ display: "inline-block", width: 24, height: 24, border: `2px solid ${theme.accent}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 1s linear infinite", marginBottom: 12 }} />
+                <div>Loading trace layout...</div>
+              </div>
+            )}
 
-      {flamegraphLoading && (
-        <div style={{ padding: "40px", textAlign: "center", color: "#888", background: "#1e1e1e", borderRadius: "8px" }}>
-          Loading flamegraph…
+            {!flamegraphLoading && flamegraph && (
+              <div style={{ background: theme.bgApp, padding: 4, borderRadius: 8 }}>
+                <Flamegraph data={flamegraph} height={400} />
+              </div>
+            )}
+
+            {!flamegraphLoading && !flamegraph && (
+              <div style={{ 
+                padding: "80px 40px", 
+                textAlign: "center", 
+                color: theme.textSecondary,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 12
+              }}>
+                <div style={{ fontSize: 32, opacity: 0.5 }}>📊</div>
+                <div style={{ fontSize: 15, fontWeight: 500 }}>No Trace Selected</div>
+                <div style={{ fontSize: 13, maxWidth: 300, lineHeight: 1.5 }}>Select a running/completed session from the list above to preview its CPU profile flamegraph here.</div>
+              </div>
+            )}
+          </div>
         </div>
-      )}
-
-      {!flamegraphLoading && flamegraph && (
-        <Flamegraph data={flamegraph} height={600} />
-      )}
-
-      {!flamegraphLoading && !flamegraph && (
-        <p style={{ color: "#888", padding: "40px", textAlign: "center", background: "#1e1e1e", borderRadius: "8px" }}>
-          ☝️ Click a session to preview its flamegraph
-        </p>
-      )}
+      </div>
+      <style>{`
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+      `}</style>
     </div>
   );
 }

@@ -3,6 +3,25 @@ import { fetchCriticalPath } from "../api/criticalPath";
 import type { CriticalPath, CriticalPathInsight } from "../types/criticalPath";
 import { mockCriticalPath, mockCriticalPathInsight, getCriticalPathEventIds } from "../data/mockCriticalPath";
 
+interface BackendCpNode {
+  name: string;
+  type: string;
+  start_ns: number;
+  end_ns: number;
+  duration_ns?: number;
+}
+
+interface BackendCriticalPathResponse {
+  session_id?: number | string;
+  critical_path_duration_ms?: number;
+  total_duration_ms?: number;
+  critical_path_percent?: number;
+  path?: BackendCpNode[];
+  // Mock-data shape — used for fallback detection
+  sessionId?: string;
+  totalPathTime?: number;
+}
+
 interface UseCriticalPathResult {
   data: {
     criticalPath: CriticalPath;
@@ -26,7 +45,7 @@ export function useCriticalPath(id: string | undefined): UseCriticalPathResult {
     setError(null);
 
     fetchCriticalPath(id)
-      .then((cp: any) => {
+      .then((cp: BackendCriticalPathResponse) => {
         if (cancelled) return;
         
         // If data matches mock data exactly, it means the API fetch failed and it fell back.
@@ -51,7 +70,7 @@ export function useCriticalPath(id: string | undefined): UseCriticalPathResult {
         
         // The backend returns nodes with start_ns, end_ns, duration_ns.
         // The frontend expects startTime (ms), endTime (ms), eventId, stream, isCritical=true.
-        const mappedNodes: any[] = cp.path ? cp.path.map((node: any, index: number) => {
+        const mappedNodes = cp.path ? cp.path.map((node: BackendCpNode, index: number) => {
             const startMs = node.start_ns / 1000000.0;
             const endMs = node.end_ns / 1000000.0;
             const durationMs = endMs - startMs;
