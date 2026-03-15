@@ -45,11 +45,11 @@ export default function Dashboard() {
               ...session,
               gpuUsage:
                 m.totalTimeMs > 0
-                  ? Math.round((m.gpuTotalTimeMs / m.totalTimeMs) * 100)
+                  ? Math.min(100, Math.round((m.gpuTotalTimeMs / m.totalTimeMs) * 100))
                   : 0,
               cpuUsage:
                 m.totalTimeMs > 0
-                  ? Math.round((m.cpuTotalTimeMs / m.totalTimeMs) * 100)
+                  ? Math.min(100, Math.round((m.cpuTotalTimeMs / m.totalTimeMs) * 100))
                   : 0,
             };
           })

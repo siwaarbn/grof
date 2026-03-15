@@ -1,51 +1,66 @@
-{"type": "correlation", "timestamp": 3658320268157, "pid": 1278, "tid": 1278, "correlation_id": 3658320268157, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943548801917, "pid": 1358, "tid": 1358, "correlation_id": 3943548801917, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943571710160, "pid": 1362, "tid": 1362, "correlation_id": 3943571710160, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943587527334, "pid": 1378, "tid": 1378, "correlation_id": 3943587527334, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943600516546, "pid": 1393, "tid": 1393, "correlation_id": 3943600516546, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943611970251, "pid": 1408, "tid": 1408, "correlation_id": 3943611970251, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943623420374, "pid": 1423, "tid": 1423, "correlation_id": 3943623420374, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943634389976, "pid": 1438, "tid": 1438, "correlation_id": 3943634389976, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943645373118, "pid": 1453, "tid": 1453, "correlation_id": 3943645373118, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943656342845, "pid": 1468, "tid": 1468, "correlation_id": 3943656342845, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943667272535, "pid": 1483, "tid": 1483, "correlation_id": 3943667272535, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943677938135, "pid": 1498, "tid": 1498, "correlation_id": 3943677938135, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943688897864, "pid": 1513, "tid": 1513, "correlation_id": 3943688897864, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943699686823, "pid": 1528, "tid": 1528, "correlation_id": 3943699686823, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943710733706, "pid": 1543, "tid": 1543, "correlation_id": 3943710733706, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943721640150, "pid": 1558, "tid": 1558, "correlation_id": 3943721640150, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943732708947, "pid": 1573, "tid": 1573, "correlation_id": 3943732708947, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943743786285, "pid": 1588, "tid": 1588, "correlation_id": 3943743786285, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943754494296, "pid": 1603, "tid": 1603, "correlation_id": 3943754494296, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943765251509, "pid": 1618, "tid": 1618, "correlation_id": 3943765251509, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943775981143, "pid": 1633, "tid": 1633, "correlation_id": 3943775981143, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943786826845, "pid": 1648, "tid": 1648, "correlation_id": 3943786826845, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943797743787, "pid": 1663, "tid": 1663, "correlation_id": 3943797743787, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943808814251, "pid": 1678, "tid": 1678, "correlation_id": 3943808814251, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943819637080, "pid": 1692, "tid": 1692, "correlation_id": 3943819637080, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943830782367, "pid": 1708, "tid": 1708, "correlation_id": 3943830782367, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943841442843, "pid": 1723, "tid": 1723, "correlation_id": 3943841442843, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943852519973, "pid": 1738, "tid": 1738, "correlation_id": 3943852519973, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943863405419, "pid": 1753, "tid": 1753, "correlation_id": 3943863405419, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943874416724, "pid": 1768, "tid": 1768, "correlation_id": 3943874416724, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943885457608, "pid": 1783, "tid": 1783, "correlation_id": 3943885457608, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943896644807, "pid": 1798, "tid": 1798, "correlation_id": 3943896644807, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943907357151, "pid": 1813, "tid": 1813, "correlation_id": 3943907357151, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943918293007, "pid": 1828, "tid": 1828, "correlation_id": 3943918293007, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943929240487, "pid": 1843, "tid": 1843, "correlation_id": 3943929240487, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943940236586, "pid": 1858, "tid": 1858, "correlation_id": 3943940236586, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943951083079, "pid": 1873, "tid": 1873, "correlation_id": 3943951083079, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943962276527, "pid": 1888, "tid": 1888, "correlation_id": 3943962276527, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943973170472, "pid": 1903, "tid": 1903, "correlation_id": 3943973170472, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943983843404, "pid": 1918, "tid": 1918, "correlation_id": 3943983843404, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3943994703729, "pid": 1933, "tid": 1933, "correlation_id": 3943994703729, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3944005394201, "pid": 1948, "tid": 1948, "correlation_id": 3944005394201, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3944016160121, "pid": 1963, "tid": 1963, "correlation_id": 3944016160121, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3944027311575, "pid": 1978, "tid": 1978, "correlation_id": 3944027311575, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3944038079453, "pid": 1993, "tid": 1993, "correlation_id": 3944038079453, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3944048605197, "pid": 2008, "tid": 2008, "correlation_id": 3944048605197, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3944059343871, "pid": 2023, "tid": 2023, "correlation_id": 3944059343871, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3944069934356, "pid": 2038, "tid": 2038, "correlation_id": 3944069934356, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3944081176339, "pid": 2053, "tid": 2053, "correlation_id": 3944081176339, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3944091811193, "pid": 2068, "tid": 2068, "correlation_id": 3944091811193, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
-{"type": "correlation", "timestamp": 3944102753132, "pid": 2083, "tid": 2083, "correlation_id": 3944102753132, "api": "cudaLaunchKernel", "stack": ["?? ??:0", "?? ??:0", "?? ??:0", "cudaLaunchKernel"]}
+{
+    "type": "correlation",
+    "timestamp": 1234567890,
+    "pid": 1111,
+    "tid": 2222,
+    "correlation_id": 100,
+    "api": "cudaLaunchKernel",
+    "stack": [
+        "main",
+        "run_model",
+        "forward",
+        "conv2d_forward"
+    ]
+}
+{
+    "type": "correlation",
+    "timestamp": 1234567990,
+    "pid": 1111,
+    "tid": 2222,
+    "correlation_id": 101,
+    "api": "cudaMemcpyAsync",
+    "stack": [
+        "main",
+        "load_data",
+        "to_device"
+    ]
+}
+{
+    "type": "correlation",
+    "timestamp": 1234568090,
+    "pid": 1111,
+    "tid": 2222,
+    "correlation_id": 102,
+    "api": "cudaStreamSynchronize",
+    "stack": [
+        "main",
+        "wait_for_gpu"
+    ]
+}
+{
+    "type": "correlation",
+    "timestamp": 1234568190,
+    "pid": 1111,
+    "tid": 2222,
+    "correlation_id": 103,
+    "api": "cudaLaunchKernel",
+    "stack": [
+        "main",
+        "run_model",
+        "forward",
+        "relu_forward"
+    ]
+}
+{
+    "type": "correlation",
+    "timestamp": 1234568290,
+    "pid": 1111,
+    "tid": 2222,
+    "correlation_id": 104,
+    "api": "cudaMemcpyAsync",
+    "stack": [
+        "main",
+        "save_results",
+        "to_host"
+    ]
+}
