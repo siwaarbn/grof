@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 import traceback
+import os
 
 from app.database import get_db
 from app.models.session import Session as ProfilingSession
@@ -169,8 +170,11 @@ def get_flamegraph(
 # Session start / stop
 # =========================================================
 @router.post("/start")
-def start(db: Session = Depends(get_db)):
-    session = start_session(db)
+def start(
+    name: str = "unnamed",
+    db: Session = Depends(get_db),
+):
+    session = start_session(db, name=name)
     return {"session_id": session.id}
 
 
@@ -198,6 +202,12 @@ def stop(
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    if cpu_file or gpu_file:
-        return {"status": "stopped", "ingestion": "started with provided files"}
-    return {"status": "stopped", "ingestion": "auto-detecting files"}
+    ui_base = os.environ.get("GROF_UI_BASE_URL", "http://localhost:5173")
+    dashboard_url = f"{ui_base}/session/{session_id}/correlated"
+
+    return {
+        "status": "stopped",
+        "session_id": session_id,
+        "ingestion": "started with provided files" if (cpu_file or gpu_file) else "auto-detecting files",
+        "dashboard_url": dashboard_url,
+    }

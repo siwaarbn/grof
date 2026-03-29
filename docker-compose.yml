@@ -10,11 +10,13 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+
   redis:
     image: redis:7-alpine
     container_name: grof-redis
     ports:
       - "6379:6379"
+
   api:
     build:
       context: ./backend
@@ -26,12 +28,27 @@ services:
       DATABASE_URL: postgresql+psycopg2://admin:admin@db:5432/grof
       API_BASE_URL: http://localhost:8000
       GROF_DATA_DIR: /data
+      GROF_UI_BASE_URL: http://localhost:5173
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app
       - .:/data:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+
+  ui:
+    build:
+      context: ./ui
+      args:
+        VITE_API_BASE_URL: /api/v1
+    container_name: grof-ui
+    depends_on:
+      - api
+    ports:
+      - "5173:80"
+    restart: unless-stopped
+
   pgadmin:
     image: dpage/pgadmin4
     container_name: grof-pgadmin
@@ -42,5 +59,6 @@ services:
       - "5050:80"
     depends_on:
       - db
+
 volumes:
   db_data:

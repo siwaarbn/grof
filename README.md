@@ -1,317 +1,215 @@
-# GROF: GPU Radiance and Occupancy Field Profiler
-### Advanced Low-Overhead GPU Profiler for AI Workloads
+# GROF — GPU Runtime Observation Framework
 
-**Bachelor Group Project • 5 Students**
+> Low-overhead GPU profiler for AI workloads that correlates CPU call stacks with GPU kernel execution in real time.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/)
 [![CUDA 12.0+](https://img.shields.io/badge/CUDA-12.0+-green.svg)](https://developer.nvidia.com/cuda-toolkit)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
-## 🎯 Project Overview
+## What is GROF?
 
-**GROF** is a production-grade GPU profiler designed to provide deep insights into AI/ML workloads with minimal performance overhead. This project combines cutting-edge systems programming (eBPF, CUDA) with modern web technologies to create a comprehensive profiling solution for PyTorch and TensorFlow applications.
+Existing profiling tools like `nsys` and `nvprof` show either CPU or GPU activity — never both together — and introduce 10–50% overhead. GROF solves this:
 
-### Why This Project?
-
-Training deep learning models is expensive and time-consuming. Developers need to understand where their GPU time is spent, but existing tools like `nsys` and `nvprof` introduce **10-50% overhead**, making them unsuitable for production profiling. GROF aims to achieve **<5% overhead** while providing rich, interactive visualizations of CPU and GPU execution.
-
-### What Makes GROF Special?
-
-- 🔍 **Full-Stack Visibility:** Python → C++ → CUDA → GPU Assembly (SASS)
-- ⚡ **Low Overhead:** <5% performance impact using eBPF and smart sampling
-- 🔗 **CPU-GPU Correlation:** Link Python code directly to GPU kernel execution
-- 📊 **Rich Visualizations:** Interactive flamegraphs, timelines, and metrics dashboards
-- 🤖 **AI Framework Integration:** Seamless PyTorch profiling with minimal code changes
+- **< 5% overhead** — eBPF sampling at 100 Hz, no instrumentation of your code
+- **Full-stack correlation** — Python → C++ → CUDA → GPU kernel, linked via CUDA correlation IDs
+- **Zero code changes** — profile your existing PyTorch or TensorFlow script as-is
+- **Interactive dashboard** — flamegraph, GPU timeline, A/B comparison, performance insights
 
 ---
 
-## 🏗️ System Architecture
-
-```
-┌────────────────────────────────────────────────────┐
-│     AI Application (PyTorch/TensorFlow Model)      │
-│              (User's Python Code)                   │
-└─────────────────┬──────────────────────────────────┘
-                  │
-                  ▼
-┌────────────────────────────────────────────────────┐
-│        eBPF Profiler (CPU Stack Sampling)          │
-│     Captures Python + C++ call stacks @ 100 Hz     │
-└─────────────────┬──────────────────────────────────┘
-                  │
-                  ▼
-┌────────────────────────────────────────────────────┐
-│    CUDA Injection Library (CUPTI + NVML)           │
-│   Intercepts CUDA calls, profiles GPU kernels      │
-└─────────────────┬──────────────────────────────────┘
-                  │
-                  ▼
-┌────────────────────────────────────────────────────┐
-│          Correlation & Merging Engine              │
-│    Links CPU stack traces to GPU kernel events     │
-└─────────────────┬──────────────────────────────────┘
-                  │
-                  ▼
-┌────────────────────────────────────────────────────┐
-│     Backend Storage & Processing (PostgreSQL)      │
-│         Stores and aggregates trace data           │
-└─────────────────┬──────────────────────────────────┘
-                  │
-                  ▼
-┌────────────────────────────────────────────────────┐
-│   Web UI: Flamegraphs, Timelines, Metrics          │
-│       Interactive visualization dashboard           │
-└────────────────────────────────────────────────────┘
-```
-
----
-
-## 👥 Team Structure
-
-This project is divided into **5 specialized teams** with clear interfaces. Note that students have overlapping responsibilities to ensure knowledge transfer.
-
-| Team | Students | Role | Technologies | Complexity |
-|------|----------|------|--------------|------------|
-| **T1** | **Fouad, Maria** | eBPF & Python Stack Unwinding | C, eBPF, CPython internals | ⚠️ HIGH |
-| **T2** | **Maria, Fouad** | CUDA Profiling & Instrumentation | C/C++, CUDA, CUPTI, NVML | ⚠️ HIGH |
-| **T3** | **Olga, Khalil** | Testing, Benchmarks & Integration | Python, PyTorch, ML | 🟨 MEDIUM-HIGH |
-| **T4** | **Khalil, Siwar** | Backend & Data Pipeline | Python, PostgreSQL, APIs | 🟨 MEDIUM-HIGH |
-| **T5** | **Siwar, Olga** | Visualization & UI | JavaScript, React, D3.js | 🟨 MEDIUM-HIGH |
-
-**Collaboration is essential!** Weekly integration meetings ensure all components work together seamlessly.
-
----
-
-## 🚀 Getting Started
+## Quick Start
 
 ### Prerequisites
 
-**Hardware:**
-- Linux workstation (Ubuntu 22.04 recommended)
-- NVIDIA GPU
-- 16GB+ RAM
+| Requirement | Version |
+|---|---|
+| Docker + Docker Compose | Latest |
+| NVIDIA GPU | Any CUDA-capable |
+| CUDA Toolkit | 12.0+ |
+| Linux | Ubuntu 22.04 recommended |
+| Python | 3.10+ (for running workloads) |
 
-**Software:**
-- CUDA Toolkit 12.0+
-- Python 3.10+
-- GCC 11+ or Clang 14+
-- BCC tools (for eBPF)
-- PostgreSQL 14+
-- Node.js 18+ & npm
-
-### Installation
+### 1. Clone the repository
 
 ```bash
-# Clone the repository
 git clone https://github.com/morecoding2/grof.git
 cd grof
-
-# Set up environment (Ubuntu/Debian)
-./scripts/setup.sh
-
-# Verify CUDA installation
-nvidia-smi
-nvcc --version
-
-# Install Python dependencies
-pip install -r requirements.txt
-
-# Set up the database
-./scripts/init_db.sh
-
-# Build eBPF profiler
-cd ebpf-profiler
-make
-
-# Build CUDA injection library
-cd ../cuda-profiler
-make
-
-# Start the backend
-cd ../backend
-python app.py
-
-# Start the frontend (in another terminal)
-cd ../frontend
-npm install
-npm start
+git checkout merge-final-inspection
 ```
 
-### Quick Test
+### 2. Start all services
 
 ```bash
-# Profile a simple PyTorch model
-python examples/profile_resnet.py
+docker-compose up -d --build
+```
 
-# View results at http://localhost:3000
+This starts:
+- **Dashboard** at `http://localhost:5173`
+- **API** at `http://localhost:8000`
+- **API Docs (Swagger)** at `http://localhost:8000/docs`
+- **pgAdmin** at `http://localhost:5050`
+
+Wait about 30 seconds for all services to initialize, then open `http://localhost:5173` in your browser.
+
+### 3. Profile a workload
+
+```bash
+bash trace.sh LLM10.py
+```
+
+The script will:
+1. Create a profiling session named after your workload
+2. Start the CPU profiler (T1) in the background
+3. Run your workload with the GPU profiler (T2) attached
+4. Stop both profilers and ingest the trace files
+5. Print a clickable URL
+
+```
+✅ Tracing complete for: LLM10.py
+🔗 View traces at:
+   http://localhost:5173/session/7/correlated
 ```
 
 ---
 
-## 📚 Project Structure
+## Architecture
 
 ```
-grof/
-├── ebpf-profiler/          # eBPF-based CPU profiler (T1)
-│   ├── src/
-│   ├── include/
-│   └── Makefile
-├── cuda-profiler/          # CUDA injection library (T2)
-│   ├── src/
-│   ├── include/
-│   └── Makefile
-├── correlation/            # CPU-GPU correlation engine (T3)
-│   └── correlator.py
-├── benchmarks/             # Test suite and benchmarks (T3)
-│   ├── pytorch_models/
-│   └── run_benchmarks.py
-├── backend/                # Backend API and storage (T4)
-│   ├── app.py
-│   ├── models/
-│   └── api/
-├── frontend/               # Web UI and visualizations (T5)
-│   ├── src/
-│   ├── components/
-│   └── public/
-├── docs/                   # Documentation
-│   ├── ARCHITECTURE.md
-│   ├── API.md
-│   └── USER_GUIDE.md
-└── scripts/                # Setup and utility scripts
+Your PyTorch / TensorFlow Workload
+         │
+         ├── T1: eBPF CPU Profiler (libcudart uprobes, 100 Hz)
+         │         └── cpu_correlation_with_stack.json
+         │
+         ├── T2: CUDA GPU Profiler (CUPTI + NVML)
+         │         └── gpu_trace.json
+         │
+         └── ingest.py ──► FastAPI Backend ──► PostgreSQL + Redis
+                                                      │
+                                              React Dashboard
+```
+
+### Team Structure
+
+| Team | Role | Key Output |
+|---|---|---|
+| T1 | eBPF CPU profiler | `cpu_correlation_with_stack.json` |
+| T2 | CUDA GPU profiler | `gpu_trace.json` |
+| T3 | Benchmarks & correlation | ResNet-50, BERT workloads |
+| T4 | Backend API + ingestion | FastAPI, PostgreSQL, Redis |
+| T5 | Frontend dashboard | React, D3.js, TypeScript |
+
+---
+
+## Dashboard Features
+
+- **Session Registry** — all profiling sessions with GPU%, CPU%, duration
+- **CPU Flamegraph** — interactive D3 flamegraph from real eBPF call stacks
+- **GPU Timeline** — kernel executions per CUDA stream with real durations
+- **CPU-GPU Correlation** — click a flamegraph node to see which GPU kernels it launched and vice versa
+- **A/B Comparison** — compare two sessions side by side with a metrics diff table
+- **Performance Insights** — automatic bottleneck detection (GPU starvation, low SM utilization)
+
+---
+
+## Manual Usage (without trace.sh)
+
+### Start a session
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/sessions/start?name=my_run"
+# Returns: {"session_id": 1}
+```
+
+### Run your workload with profilers
+
+```bash
+# T1 — CPU profiler (requires Linux + sudo)
+sudo python3 M2/T1/week3/correlation_stacks.py \
+    --output /tmp/grof/cpu_correlation_with_stack.json &
+
+# T2 — GPU profiler (requires CUDA)
+GROF_OUTPUT_DIR=/tmp/grof LD_PRELOAD=./libgrof_cuda.so python3 your_workload.py
+```
+
+### Stop the session (auto-ingests traces)
+
+```bash
+curl -X POST "http://localhost:8000/api/v1/sessions/stop/1"
+```
+
+Open: `http://localhost:5173/session/1/correlated`
+
+---
+
+## Configuration
+
+### trace.sh environment variables
+
+| Variable | Default | Description |
+|---|---|---|
+| `GROF_API` | `http://localhost:8000` | Backend API URL |
+| `GROF_UI` | `http://localhost:5173` | Frontend URL printed after tracing |
+| `GROF_OUTPUT_DIR` | `/tmp/grof` | Directory for T1/T2 trace files |
+
+### Docker service ports
+
+| Service | URL | Credentials |
+|---|---|---|
+| Dashboard | http://localhost:5173 | — |
+| API | http://localhost:8000 | — |
+| Swagger Docs | http://localhost:8000/docs | — |
+| pgAdmin | http://localhost:5050 | admin@example.com / admin |
+
+---
+
+## Development
+
+### Run frontend locally
+
+```bash
+cd ui
+npm install
+npm run dev
+```
+
+### Run backend locally
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+### Reset the database
+
+```bash
+docker exec -it grof-db psql -U admin -d grof -c \
+  "TRUNCATE sessions, cpu_samples, gpu_events, correlation_events, stack_frames RESTART IDENTITY CASCADE;"
+docker exec -it grof-redis redis-cli FLUSHALL
 ```
 
 ---
 
-## 🎯 Project Milestones
+## Troubleshooting
 
-### Month 1: Foundation (Weeks 1-4)
-- ✅ Environment setup and technology learning
-- ✅ Architecture design and documentation
-- ✅ Initial prototypes for each component
-- **Deliverable:** Working prototypes + architecture doc
+**Dashboard shows no data after trace.sh**
+Check the backend logs: `docker logs grof-api --tail 30` and look for `[AUTO-INGEST]` messages.
 
-### Month 2: Core Development (Weeks 5-8)
-- ✅ Implement core profiling components
-- ✅ First integration and basic correlation
-- ✅ Basic end-to-end demo
-- **Deliverable:** Core profiling working
+**API not reachable**
+Wait 30 seconds after `docker-compose up` for the database to initialize, then check `docker ps`.
 
-### Month 3: Advanced Features (Weeks 9-12)
-- ✅ Complete feature set
-- ✅ SASS disassembly integration
-- ✅ Advanced visualizations
-- ✅ Optimize for <5% overhead
-- **Deliverable:** Feature-complete system
+**T1 profiler not found**
+T1 requires Linux + a CUDA-capable GPU. trace.sh will skip it gracefully and still ingest GPU data from T2.
 
-### Month 4: Polish & Delivery (Weeks 13-16)
-- ✅ Comprehensive testing and validation
-- ✅ Documentation sprint
-- ✅ Final presentation preparation
-- **Deliverable:** Production-ready, documented system
+**Permission denied**
+T1 uses eBPF and requires sudo: `sudo bash trace.sh workload.py`
 
 ---
 
-## 🎓 Learning Outcomes
+## License
 
-By the end of this project, you will have mastered:
+MIT — see [LICENSE](LICENSE) for details.
 
-### Systems Programming
-- eBPF programming and Linux kernel tracing
-- Low-level memory access and debugging
-- Performance optimization techniques
-- Multi-threaded programming
-
-### GPU Architecture
-- CUDA programming model and architecture
-- GPU performance counters and metrics
-- SASS assembly language
-- CUPTI and NVML APIs
-
-### Language Internals
-- CPython interpreter structure
-- Stack unwinding algorithms
-- Frame pointer and DWARF debugging
-
-### Full-Stack Development
-- Backend API design (REST/GraphQL)
-- Database schema design
-- React and modern JavaScript
-- Data visualization with D3.js
-
-### Software Engineering
-- Large-scale codebase collaboration
-- Git workflow and code reviews
-- Testing and validation strategies
-- Documentation and technical writing
-
----
-
-## 📅 Milestone 1: Foundation & Prototyping (Weeks 1-4)
-
-**Goal:** Establish the development environment, understand core technologies, and build independent "Hello World" prototypes for each component.
-
-### 🟢 T1: eBPF & Stack Unwinding (Fouad, Maria)
-**Objective:** Build a standalone eBPF script that can read Python stack frames.
-- [ ] **Research:** Deep dive into CPython interpreter internals (specifically `PyEval_EvalFrameDefault`) and BCC/libbpf.
-- [ ] **Environment:** Set up a Linux environment with BCC tools installed.
-- [ ] **Development:** Write a basic eBPF program (C + Python wrapper) that attaches to a running Python process.
-- [ ] **Deliverable:** A script `simple_profiler.py` that prints the name of the currently executing Python function 100 times per second.
-
-### 🔵 T2: CUDA Instrumentation (Maria, Fouad)
-**Objective:** Intercept CUDA calls to detect when kernels are launched.
-- [ ] **Research:** Study the CUPTI Activity API and Callback API documentation.
-- [ ] **Environment:** Verify CUDA Toolkit 12.0+ installation and build sample CUPTI samples.
-- [ ] **Development:** Create a dynamic library (`.so`) using CUPTI that subscribes to kernel launch callbacks.
-- [ ] **Deliverable:** A shared library that, when loaded with `LD_PRELOAD` running a PyTorch script, prints the name of every GPU kernel launched to stdout.
-
-### 🟠 T3: Testing & Benchmarks (Olga, Khalil)
-**Objective:** Establish baseline performance metrics for comparison.
-- [ ] **Research:** Analyze the overhead and output format of `nsys` (Nsight Systems) and `torch.profiler`.
-- [ ] **Development:** Set up the `benchmarks/` directory with 3 standard models: ResNet50 (Computer Vision), BERT (NLP), and a simple custom CNN.
-- [ ] **Deliverable:** A "Baseline Performance Report" (PDF/MD) documenting the execution time and GPU utilization of these models *without* GROF, to serve as the ground truth.
-
-### 🟣 T4: Backend & Data (Khalil, Siwar)
-**Objective:** Design the data structure for storing profiling traces.
-- [ ] **Research:** Define a JSON schema that can represent both a CPU stack trace (from T1) and a GPU kernel event (from T2).
-- [ ] **Development:** Set up a PostgreSQL database and a basic FastAPI/Flask application skeleton.
-- [ ] **Deliverable:** A running API with an `/ingest` endpoint that accepts dummy JSON trace data and stores it in the database.
-
-### 🟡 T5: Visualization (Siwar, Olga)
-**Objective:** Create the visual shell for the profiler.
-- [ ] **Research:** Investigate D3.js flamegraph libraries and React integration patterns.
-- [ ] **Development:** Initialize the React frontend project and create the basic layout (sidebar, header, main view).
-- [ ] **Deliverable:** A web page displaying a **static** flamegraph rendered from a hardcoded JSON file (matching the schema defined by T4).
-
----
-
-## 📚 Resources
-
-### eBPF & Kernel Programming
-- [BCC Tutorial](https://github.com/iovisor/bcc/blob/master/docs/tutorial.md)
-- [Linux Kernel Tracing](https://www.kernel.org/doc/html/latest/trace/index.html)
-- [eBPF.io](https://ebpf.io/)
-
-### CUDA & GPU Programming
-- [CUDA Programming Guide](https://docs.nvidia.com/cuda/cuda-c-programming-guide/)
-- [CUPTI Documentation](https://docs.nvidia.com/cuda/cupti/)
-- [GPU Performance Analysis](https://docs.nvidia.com/nsight-systems/)
-
-### PyTorch & ML
-- [PyTorch Profiler](https://pytorch.org/tutorials/recipes/recipes/profiler_recipe.html)
-- [PyTorch Internals](http://blog.ezyang.com/2019/05/pytorch-internals/)
-
-### Visualization
-- [D3.js Documentation](https://d3js.org/)
-- [Flamegraph Visualization](http://www.brendangregg.com/flamegraphs.html)
-- [Chrome Tracing Format](https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/)
-
----
-
-## 📬 Contact
-
-**Project Supervisor:** Mohamadreza Rostami M.Sc.
-**Email:** mohamadreza.rostami@tu-darmstadt.de
-**Office:** FB Informatik / FG Systemsicherheit Pankratiusstraße 2 (S2 20, Raum 311) 64289 Darmstadt
-
+**Team 90 — TU Darmstadt — Team Project Software Development**

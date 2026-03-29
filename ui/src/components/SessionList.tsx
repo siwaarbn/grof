@@ -106,7 +106,9 @@ export default function SessionList({
                   </td>
 
                   <td style={{ padding: "16px 16px", fontWeight: "500", color: "#F8FAFC" }}>
-                    {session.name}
+                    {session.name && session.name !== "unnamed"
+                      ? session.name
+                      : `Session #${session.id}`}
                   </td>
 
                   <td style={{ padding: "16px 16px", color: "#cbd5e1", fontSize: 13 }}>
